@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Smart-Dine Canteen</title>
+    <link rel="stylesheet" href="style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+    <div id="root">
+        <nav class="nav-floating glass-card">
+            <span class="nav-brand">Smart-Dine</span>
+            <button class="nav-link active" data-target="dashboard">
+                <i data-lucide="layout-dashboard"></i> Live Dashboard
+            </button>
+            <button class="nav-link" data-target="planner">
+                <i data-lucide="brain-circuit"></i> Future Planner
+            </button>
+            <button class="nav-link" data-target="kds">
+                <i data-lucide="chef-hat"></i> Staff KDS
+            </button>
+        </nav>
+
+        <main id="app-content">
+            <section id="dashboard" class="page-view active fade-in">
+                <div class="dashboard-page">
+                    <div class="dashboard-header slide-up">
+                        <div class="avatar">MV</div>
+                        <div>
+                            <h1>Welcome, M.V.S.VISWAS</h1>
+                            <p>Smart-Dine Campus Canteen | 24B81A67R1</p>
+                        </div>
+                    </div>
+
+                    <div class="segmented-control slide-up" style="animation-delay: 0.1s;">
+                        <button class="shop-tab active" data-shop="Meals">Meals</button>
+                        <button class="shop-tab" data-shop="Snacks">Snacks</button>
+                        <button class="shop-tab" data-shop="Beverages">Beverages</button>
+                    </div>
+
+                    <div class="bento-grid slide-up" style="animation-delay: 0.2s;">
+                        <div class="glass-card metric-card">
+                            <div class="metric-icon violet"><i data-lucide="users"></i></div>
+                            <div class="metric-label">Current Queue</div>
+                            <div class="metric-value" id="queue-val">24</div>
+                        </div>
+                        <div class="glass-card metric-card">
+                            <div class="metric-icon amber"><i data-lucide="clock"></i></div>
+                            <div class="metric-label">Estimated Wait</div>
+                            <div class="metric-value"><span id="wait-val">12</span> <span style="font-size: 1rem;">Mins</span></div>
+                        </div>
+                        <div class="glass-card metric-card full-width" id="seats-card">
+                            <div class="seats-row">
+                                <div>
+                                    <div class="metric-icon emerald" style="margin-bottom: 0.5rem;"><i data-lucide="armchair"></i></div>
+                                    <div class="metric-label">Available Seats</div>
+                                    <div class="metric-value"><span id="seats-val">45</span> <span style="font-size: 1rem; color: var(--sd-text-muted);">/ 120</span></div>
+                                </div>
+                                <svg width="72" height="72" viewBox="0 0 72 72">
+                                    <circle cx="36" cy="36" r="28" fill="none" stroke-width="6" class="progress-ring-bg" />
+                                    <circle cx="36" cy="36" r="28" fill="none" stroke-width="6" class="progress-ring-fill" id="seat-ring" stroke-linecap="round" transform="rotate(-90 36 36)" />
+                                    <text x="36" y="42" text-anchor="middle" font-size="16" font-weight="700" fill="var(--sd-text-primary)" id="seat-text">45</text>
+                                </svg>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="status-row slide-up" style="animation-delay: 0.3s;">
+                        <span class="status-label">Campus Traffic Status</span>
+                        <span class="badge-glow warning" id="traffic-badge">
+                            <i data-lucide="zap" style="width: 12px; height: 12px;"></i> Medium Traffic
+                        </span>
+                    </div>
+
+                    <div class="action-section slide-up" style="animation-delay: 0.4s; margin-top: 2rem;">
+                        <button class="btn-primary" id="join-queue-btn">
+                            <i data-lucide="zap"></i> Join Queue Now
+                        </button>
+                    </div>
+                </div>
+            </section>
+
+            <section id="planner" class="page-view" style="display: none;">
+                <div class="planner-page">
+                    <div class="planner-header slide-up">
+                        <h1>Predictive Crowd Forecasting</h1>
+                        <p>Plan your break. Select a future date and time to see AI-predicted wait times.</p>
+                    </div>
+
+                    <div class="glass-card planner-form slide-up" style="animation-delay: 0.1s;">
+                        <div class="form-grid">
+                            <div class="form-group">
+                                <label>Date</label>
+                                <input type="date" class="form-input" id="predict-date">
+                            </div>
+                            <div class="form-group">
+                                <label>Time</label>
+                                <input type="time" class="form-input" id="predict-time">
+                            </div>
+                            <div class="form-group full">
+                                <label>Shop</label>
+                                <select class="form-input" id="predict-shop">
+                                    <option>Meals</option>
+                                    <option>Snacks</option>
+                                    <option>Beverages</option>
+                                </select>
+                            </div>
+                        </div>
+                        <button class="btn-primary" id="predict-btn" style="width: 100%; margin-top: 1rem;">
+                            <i data-lucide="search"></i> Predict Wait Time
+                        </button>
+                    </div>
+
+                    <div class="glass-card prediction-result slide-up" id="prediction-result" style="display: none; margin-top: 2rem;">
+                        <div class="prediction-metrics">
+                            <div class="pred-metric">
+                                <h3 id="pred-wait-val">--</h3>
+                                <p>Predicted Wait (Mins)</p>
+                            </div>
+                            <div class="pred-metric">
+                                <h3 id="pred-queue-val">--</h3>
+                                <p>Expected Queue</p>
+                            </div>
+                        </div>
+                        <div class="chart-container" style="margin-top: 1.5rem; height: 200px;">
+                            <canvas id="predictionChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <section id="kds" class="page-view" style="display: none;">
+                <div class="kds-page">
+                    <div class="kds-header slide-up">
+                        <h1>Staff Kitchen Display</h1>
+                    </div>
+
+                    <div class="glass-card kds-summary slide-up" style="animation-delay: 0.1s; display: flex; gap: 2rem; margin-bottom: 2rem;">
+                        <div class="kds-stat">
+                            <h3 id="active-orders-count">3</h3>
+                            <p><i data-lucide="clipboard-list" style="width: 14px; height: 14px;"></i> Active Orders</p>
+                        </div>
+                        <div class="kds-stat">
+                            <h3>1m 15s</h3>
+                            <p><i data-lucide="timer" style="width: 14px; height: 14px;"></i> Avg Speed</p>
+                        </div>
+                    </div>
+
+                    <div class="kds-grid slide-up" id="kds-grid" style="animation-delay: 0.2s;">
+                        </div>
+                </div>
+            </section>
+        </main>
+        
+        <div class="toast-container" id="toast-container"></div>
+    </div>
+    <script src="script.js"></script>
+</body>
+</html>
