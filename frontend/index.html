@@ -11,6 +11,31 @@
 </head>
 <body>
     <div id="root">
+        <div id="auth-screen" class="glass-card" style="position: fixed; inset: 0; z-index: 1000; display: flex; flex-direction: column; align-items: center; justify-content: center; border-radius: 0; background: var(--sd-bg-start);">
+    <div class="glass-card" style="width: 100%; max-width: 400px; text-align: center; padding: 3rem 2rem;">
+        <div class="metric-icon violet" style="margin: 0 auto 1.5rem auto; width: 60px; height: 60px;">
+            <i data-lucide="utensils" style="width: 30px; height: 30px;"></i>
+        </div>
+        
+        <h2 id="auth-title" style="margin-bottom: 0.5rem;">Smart-Dine Login</h2>
+        <p id="auth-subtitle" style="color: var(--sd-text-muted); margin-bottom: 2rem;">Enter your College Roll Number</p>
+        
+        <input type="text" id="auth-name" class="form-input" placeholder="Your Full Name" style="display: none; text-align: center; font-size: 1.1rem; margin-bottom: 1rem;">
+        
+        <input type="text" id="auth-roll-no" class="form-input" placeholder="e.g. 24B81A67R1" style="text-transform: uppercase; text-align: center; font-size: 1.1rem; margin-bottom: 1.5rem;">
+        
+        <button id="auth-btn" class="btn-primary" style="width: 100%; margin-bottom: 1rem;">
+            <i data-lucide="log-in" id="auth-btn-icon"></i> <span id="auth-btn-text">Access Dashboard</span>
+        </button>
+        
+        <p id="auth-error" style="color: var(--sd-danger); margin-bottom: 1rem; font-size: 0.9rem; display: none;">Error message here</p>
+        
+        <p style="font-size: 0.9rem; color: var(--sd-text-secondary); margin-top: 1rem;">
+            <span id="auth-switch-text">Don't have an account?</span> 
+            <a href="#" id="auth-switch-btn" style="color: var(--sd-accent-violet); font-weight: 600; text-decoration: none;">Sign Up</a>
+        </p>
+    </div>
+</div>
         <nav class="nav-floating glass-card">
             <span class="nav-brand">Smart-Dine</span>
             <button class="nav-link active" data-target="dashboard">
@@ -144,7 +169,7 @@
                             <p><i data-lucide="clipboard-list" style="width: 14px; height: 14px;"></i> Active Orders</p>
                         </div>
                         <div class="kds-stat">
-                            <h3>1m 15s</h3>
+                            <h3 id="kds-avg-speed">1m 15s</h3>
                             <p><i data-lucide="timer" style="width: 14px; height: 14px;"></i> Avg Speed</p>
                         </div>
                     </div>

@@ -21,7 +21,17 @@ def initialize_cloud_database():
                   
     c.execute('''CREATE TABLE IF NOT EXISTS history_log 
                  (id SERIAL PRIMARY KEY, uid TEXT, shop TEXT, day_of_week INTEGER, hour_of_day INTEGER, queue_length INTEGER, service_duration REAL)''')
+    # Add this right below where you create the active_queue and history_log tables
 
+    # 1. Create the Students Table
+    c.execute('''CREATE TABLE IF NOT EXISTS students 
+                 (roll_no TEXT PRIMARY KEY, name TEXT)''')
+
+    # 2. Inject your specific test user so you can log in
+    c.execute('''INSERT INTO students (roll_no, name) 
+                 VALUES (%s, %s) ON CONFLICT (roll_no) DO NOTHING''', 
+              ('24B81A67R1', 'M.V.S.VISWAS'))
+    
     # 2. Check if data already exists
     c.execute("SELECT COUNT(*) FROM history_log")
     if c.fetchone()[0] == 0:

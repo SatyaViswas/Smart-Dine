@@ -41,7 +41,7 @@ def get_status(shop: str = "Meals"):
     conn.close()
     
     traffic = "High" if queue >= 15 else "Medium" if queue >= 7 else "Low"
-    return {"queue": queue, "wait": round((queue * avg_speed) / 60), "seats": available_seats, "traffic": traffic}
+    return {"queue": queue, "wait": round((queue * avg_speed) / 60), "seats": available_seats, "traffic": traffic, "avg_speed_seconds": int(avg_speed)}
 
 @app.post("/api/join")
 def join_queue(req: CheckInReq):
@@ -88,3 +88,49 @@ def predict_wait(req: PredictReq):
     date_obj = datetime.strptime(req.date_string, "%Y-%m-%d")
     time_obj = datetime.strptime(req.time_string, "%H:%M")
     return predict_future_wait(req.shop, date_obj.weekday(), time_obj.hour)
+
+
+class SignupReq(BaseModel): 
+    roll_no: str
+    name: str
+
+@app.post("/api/signup")
+def signup_student(req: SignupReq):
+    conn = get_db_connection()
+    c = conn.cursor()
+    
+    clean_roll_no = req.roll_no.strip().upper()
+    clean_name = req.name.strip()
+    
+    # 1. Check if the Roll Number is already registered
+    c.execute("SELECT name FROM students WHERE roll_no = %s", (clean_roll_no,))
+    if c.fetchone():
+        conn.close()
+        raise HTTPException(status_code=400, detail="Roll Number already registered. Please log in.")
+    
+    # 2. Insert the new student into the database
+    c.execute("INSERT INTO students (roll_no, name) VALUES (%s, %s)", (clean_roll_no, clean_name))
+    conn.commit()
+    conn.close()
+    
+    # 3. Return success so the frontend can log them in immediately
+    return {"success": True, "name": clean_name, "roll_no": clean_roll_no}
+# 1. Ensure LoginReq ONLY asks for roll_no
+class LoginReq(BaseModel): 
+    roll_no: str
+
+# 2. Ensure your endpoint is using LoginReq (not SignupReq)
+@app.post("/api/login")
+def login_student(req: LoginReq):
+    conn = get_db_connection()
+    c = conn.cursor()
+    
+    # Check if the roll number exists
+    c.execute("SELECT name FROM students WHERE roll_no = %s", (req.roll_no.strip().upper(),))
+    student = c.fetchone()
+    conn.close()
+    
+    if student:
+        return {"success": True, "name": student[0], "roll_no": req.roll_no.upper()}
+    else:
+        raise HTTPException(status_code=401, detail="Invalid Roll Number")
