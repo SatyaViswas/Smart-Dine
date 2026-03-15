@@ -39,13 +39,13 @@
         <nav class="nav-floating glass-card">
             <span class="nav-brand">Smart-Dine</span>
             <button class="nav-link active" data-target="dashboard">
-                <i data-lucide="layout-dashboard"></i> Live Dashboard
+                <i data-lucide="layout-dashboard"></i> <span class="nav-label">Live Dashboard</span>
             </button>
             <button class="nav-link" data-target="planner">
-                <i data-lucide="brain-circuit"></i> Future Planner
+                <i data-lucide="brain-circuit"></i> <span class="nav-label">Future Planner</span>
             </button>
             <button class="nav-link" data-target="kds">
-                <i data-lucide="chef-hat"></i> Staff KDS
+                <i data-lucide="chef-hat"></i> <span class="nav-label">Staff KDS</span>
             </button>
         </nav>
 
@@ -118,24 +118,63 @@
                     <div class="glass-card planner-form slide-up" style="animation-delay: 0.1s;">
                         <div class="form-grid">
                             <div class="form-group">
-                                <label>Date</label>
-                                <input type="date" class="form-input" id="predict-date">
+                                <label class="input-label"><i data-lucide="calendar" style="width:14px;height:14px;"></i> Date</label>
+                                <input type="hidden" id="predict-date">
+                                <div class="custom-date-picker">
+                                    <button type="button" class="date-trigger" id="date-trigger">
+                                        <i data-lucide="calendar" style="width:15px;height:15px;"></i>
+                                        <span id="date-display">Select date</span>
+                                        <i data-lucide="chevron-down" style="width:14px;height:14px;margin-left:auto;opacity:0.5;"></i>
+                                    </button>
+                                    <div class="calendar-popup" id="calendar-popup">
+                                        <div class="cal-header">
+                                            <button type="button" class="cal-nav-btn" id="cal-prev">&#8249;</button>
+                                            <div class="cal-title">
+                                                <span id="cal-month-display">March</span>
+                                                <div class="cal-year-ctrl">
+                                                    <button type="button" class="cal-yr-arrow" id="cal-prev-yr">&#8249;</button>
+                                                    <span id="cal-year-display">2026</span>
+                                                    <button type="button" class="cal-yr-arrow" id="cal-next-yr">&#8250;</button>
+                                                </div>
+                                            </div>
+                                            <button type="button" class="cal-nav-btn" id="cal-next">&#8250;</button>
+                                        </div>
+                                        <div class="cal-weekdays">
+                                            <span>Su</span><span>Mo</span><span>Tu</span><span>We</span><span>Th</span><span>Fr</span><span>Sa</span>
+                                        </div>
+                                        <div class="cal-grid" id="cal-grid"></div>
+                                    </div>
+                                </div>
+                                <div class="date-shortcut-row">
+                                    <button type="button" class="date-shortcut-btn" data-offset="0">Today</button>
+                                    <button type="button" class="date-shortcut-btn" data-offset="1">Tomorrow</button>
+                                    <button type="button" class="date-shortcut-btn" data-offset="7">+1 Week</button>
+                                </div>
                             </div>
                             <div class="form-group">
-                                <label>Time</label>
-                                <input type="time" class="form-input" id="predict-time">
+                                <label class="input-label"><i data-lucide="clock" style="width:14px;height:14px;"></i> Time</label>
+                                <input type="hidden" id="predict-time" value="12:00">
+                                <div class="drum-picker">
+                                    <div class="drum-highlight"></div>
+                                    <div class="drum-col" id="drum-hours"></div>
+                                    <div class="drum-sep">:</div>
+                                    <div class="drum-col" id="drum-mins"></div>
+                                </div>
                             </div>
                             <div class="form-group full">
-                                <label>Shop</label>
-                                <select class="form-input" id="predict-shop">
-                                    <option>Meals</option>
-                                    <option>Snacks</option>
-                                    <option>Beverages</option>
-                                </select>
+                                <label class="input-label"><i data-lucide="store" style="width:14px;height:14px;"></i> Shop</label>
+                                <div class="select-wrap">
+                                    <select class="form-input" id="predict-shop">
+                                        <option>Meals</option>
+                                        <option>Snacks</option>
+                                        <option>Beverages</option>
+                                    </select>
+                                    <i data-lucide="chevron-down" class="select-arrow"></i>
+                                </div>
                             </div>
                         </div>
-                        <button class="btn-primary" id="predict-btn" style="width: 100%; margin-top: 1rem;">
-                            <i data-lucide="search"></i> Predict Wait Time
+                        <button class="btn-primary" id="predict-btn" style="width: 100%; margin-top: 1.5rem;">
+                            <i data-lucide="sparkles"></i> Predict Wait Time
                         </button>
                     </div>
 

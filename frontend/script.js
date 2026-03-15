@@ -312,6 +312,142 @@ function showToast(message, type = 'success') {
     setTimeout(() => { toast.style.opacity = '0'; setTimeout(() => toast.remove(), 300); }, 3000);
 }
 
+// --- FUTURE PLANNER CUSTOM PICKERS ---
+(function initPlannerPickers() {
+
+    // ── Calendar Picker ──────────────────────────────────────────
+    const dateInput = document.getElementById('predict-date');
+    const trigger   = document.getElementById('date-trigger');
+    const popup     = document.getElementById('calendar-popup');
+    let calCursor   = new Date();
+
+    function toLocalStr(d) {
+        return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+    }
+
+    function formatDisplay(ds) {
+        const [y, m, d] = ds.split('-').map(Number);
+        return new Date(y, m - 1, d).toLocaleDateString('en-IN', { weekday: 'short', month: 'short', day: 'numeric' });
+    }
+
+    function renderCalGrid() {
+        const y = calCursor.getFullYear(), mo = calCursor.getMonth();
+        document.getElementById('cal-month-display').textContent =
+            new Date(y, mo).toLocaleString('default', { month: 'long' });
+        document.getElementById('cal-year-display').textContent = y;
+
+        const todayStr  = toLocalStr(new Date());
+        const firstDay  = new Date(y, mo, 1).getDay();
+        const totalDays = new Date(y, mo + 1, 0).getDate();
+        let html = '<span></span>'.repeat(firstDay);
+
+        for (let d = 1; d <= totalDays; d++) {
+            const ds   = `${y}-${String(mo+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+            const past = ds < todayStr;
+            const sel  = ds === dateInput.value;
+            const tod  = ds === todayStr;
+            html += `<button type="button" class="cal-day${sel?' selected':''}${tod&&!sel?' today':''}${past?' past':''}" ${past?'disabled':''} data-date="${ds}">${d}</button>`;
+        }
+        document.getElementById('cal-grid').innerHTML = html;
+        document.querySelectorAll('#cal-grid .cal-day:not([disabled])').forEach(btn =>
+            btn.addEventListener('click', () => selectDate(btn.dataset.date))
+        );
+    }
+
+    function selectDate(ds) {
+        dateInput.value = ds;
+        document.getElementById('date-display').textContent = formatDisplay(ds);
+        popup.classList.remove('open');
+        trigger.classList.remove('open');
+        syncPills();
+        renderCalGrid();
+    }
+
+    function syncPills() {
+        document.querySelectorAll('.date-shortcut-btn').forEach(btn => {
+            const d = new Date();
+            d.setDate(d.getDate() + parseInt(btn.dataset.offset, 10));
+            btn.classList.toggle('active', toLocalStr(d) === dateInput.value);
+        });
+    }
+
+    trigger.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const open = popup.classList.toggle('open');
+        trigger.classList.toggle('open', open);
+        if (open) renderCalGrid();
+    });
+    document.getElementById('cal-prev').addEventListener('click', (e) => {
+        e.stopPropagation(); calCursor.setMonth(calCursor.getMonth() - 1); renderCalGrid();
+    });
+    document.getElementById('cal-next').addEventListener('click', (e) => {
+        e.stopPropagation(); calCursor.setMonth(calCursor.getMonth() + 1); renderCalGrid();
+    });
+    document.getElementById('cal-prev-yr').addEventListener('click', (e) => {
+        e.stopPropagation(); calCursor.setFullYear(calCursor.getFullYear() - 1); renderCalGrid();
+    });
+    document.getElementById('cal-next-yr').addEventListener('click', (e) => {
+        e.stopPropagation(); calCursor.setFullYear(calCursor.getFullYear() + 1); renderCalGrid();
+    });
+    document.addEventListener('click', (e) => {
+        if (!e.target.closest('.custom-date-picker')) {
+            popup.classList.remove('open');
+            trigger.classList.remove('open');
+        }
+    });
+    document.querySelectorAll('.date-shortcut-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const d = new Date();
+            d.setDate(d.getDate() + parseInt(btn.dataset.offset, 10));
+            calCursor = new Date(d);
+            selectDate(toLocalStr(d));
+        });
+    });
+
+    selectDate(toLocalStr(new Date())); // default: today
+
+    // ── Drum Time Picker ─────────────────────────────────────────
+    const ITEM_H    = 44;
+    const timeInput = document.getElementById('predict-time');
+
+    const hourItems = [];
+    for (let h = 6; h <= 22; h++) {
+        hourItems.push({ val: h, label: h < 12 ? `${h} AM` : h === 12 ? '12 PM' : `${h - 12} PM` });
+    }
+    const minItems = [
+        { val: 0, label: '00' }, { val: 15, label: '15' },
+        { val: 30, label: '30' }, { val: 45, label: '45' }
+    ];
+
+    function buildDrumCol(el, items) {
+        el.innerHTML =
+            `<div style="height:${ITEM_H}px;flex-shrink:0;"></div>` +
+            items.map(it => `<div class="drum-item" data-val="${it.val}">${it.label}</div>`).join('') +
+            `<div style="height:${ITEM_H}px;flex-shrink:0;"></div>`;
+    }
+
+    buildDrumCol(document.getElementById('drum-hours'), hourItems);
+    buildDrumCol(document.getElementById('drum-mins'),  minItems);
+
+    function snapTo(el, idx) { el.scrollTop = idx * ITEM_H; }
+    snapTo(document.getElementById('drum-hours'), 6); // default 12 PM (6 AM = idx 0)
+    snapTo(document.getElementById('drum-mins'),  0); // default :00
+
+    function updateTimeInput() {
+        const hEl  = document.getElementById('drum-hours');
+        const mEl  = document.getElementById('drum-mins');
+        const hIdx = Math.min(Math.max(Math.round(hEl.scrollTop / ITEM_H), 0), hourItems.length - 1);
+        const mIdx = Math.min(Math.max(Math.round(mEl.scrollTop / ITEM_H), 0), minItems.length - 1);
+        timeInput.value = `${String(hourItems[hIdx].val).padStart(2,'0')}:${String(minItems[mIdx].val).padStart(2,'0')}`;
+    }
+
+    ['drum-hours', 'drum-mins'].forEach(id =>
+        document.getElementById(id).addEventListener('scroll', updateTimeInput)
+    );
+
+    updateTimeInput();
+})();
+
 // Initial Calls
 updateDashboardUI();
 renderOrders();
