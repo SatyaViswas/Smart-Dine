@@ -2,6 +2,7 @@ from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 import psycopg2
+import hashlib
 import time
 from datetime import datetime
 from ml_model import predict_future_wait
@@ -92,7 +93,6 @@ def predict_wait(req: PredictReq):
 
 class SignupReq(BaseModel): 
     roll_no: str
-    name: str
 
 @app.post("/api/signup")
 def signup_student(req: SignupReq):
@@ -100,21 +100,20 @@ def signup_student(req: SignupReq):
     c = conn.cursor()
     
     clean_roll_no = req.roll_no.strip().upper()
-    clean_name = req.name.strip()
     
     # 1. Check if the Roll Number is already registered
-    c.execute("SELECT name FROM students WHERE roll_no = %s", (clean_roll_no,))
+    c.execute("SELECT roll_no FROM students WHERE roll_no = %s", (clean_roll_no,))
     if c.fetchone():
         conn.close()
         raise HTTPException(status_code=400, detail="Roll Number already registered. Please log in.")
     
     # 2. Insert the new student into the database
-    c.execute("INSERT INTO students (roll_no, name) VALUES (%s, %s)", (clean_roll_no, clean_name))
+    c.execute("INSERT INTO students (roll_no) VALUES (%s)", (clean_roll_no,))
     conn.commit()
     conn.close()
     
     # 3. Return success so the frontend can log them in immediately
-    return {"success": True, "name": clean_name, "roll_no": clean_roll_no}
+    return {"success": True, "roll_no": clean_roll_no}
 # 1. Ensure LoginReq ONLY asks for roll_no
 class LoginReq(BaseModel): 
     roll_no: str
@@ -126,11 +125,54 @@ def login_student(req: LoginReq):
     c = conn.cursor()
     
     # Check if the roll number exists
-    c.execute("SELECT name FROM students WHERE roll_no = %s", (req.roll_no.strip().upper(),))
+    clean_roll_no = req.roll_no.strip().upper()
+    c.execute("SELECT roll_no FROM students WHERE roll_no = %s", (clean_roll_no,))
     student = c.fetchone()
     conn.close()
     
     if student:
-        return {"success": True, "name": student[0], "roll_no": req.roll_no.upper()}
+        return {"success": True, "roll_no": student[0]}
     else:
         raise HTTPException(status_code=401, detail="Invalid Roll Number")
+
+
+# --- STAFF AUTH ---
+
+class StaffSignupReq(BaseModel):
+    email: str
+    password: str
+
+class StaffLoginReq(BaseModel):
+    email: str
+    password: str
+
+@app.post("/api/staff/signup")
+def staff_signup(req: StaffSignupReq):
+    conn = get_db_connection()
+    c = conn.cursor()
+    clean_email = req.email.strip().lower()
+
+    c.execute("SELECT email FROM staff WHERE email = %s", (clean_email,))
+    if c.fetchone():
+        conn.close()
+        raise HTTPException(status_code=400, detail="Email already registered. Please log in.")
+
+    password_hash = hashlib.sha256(req.password.encode()).hexdigest()
+    c.execute("INSERT INTO staff (email, password_hash) VALUES (%s, %s)", (clean_email, password_hash))
+    conn.commit()
+    conn.close()
+    return {"success": True, "email": clean_email}
+
+@app.post("/api/staff/login")
+def staff_login(req: StaffLoginReq):
+    conn = get_db_connection()
+    c = conn.cursor()
+    clean_email = req.email.strip().lower()
+
+    c.execute("SELECT password_hash FROM staff WHERE email = %s", (clean_email,))
+    row = c.fetchone()
+    conn.close()
+
+    if row and row[0] == hashlib.sha256(req.password.encode()).hexdigest():
+        return {"success": True, "email": clean_email}
+    raise HTTPException(status_code=401, detail="Invalid email or password.")

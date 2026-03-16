@@ -25,12 +25,19 @@ def initialize_cloud_database():
 
     # 1. Create the Students Table
     c.execute('''CREATE TABLE IF NOT EXISTS students 
-                 (roll_no TEXT PRIMARY KEY, name TEXT)''')
+                 (roll_no TEXT PRIMARY KEY)''')
+
+    # Ensure schema matches current auth model if the table was created earlier with extra columns
+    c.execute('''ALTER TABLE students DROP COLUMN IF EXISTS name''')
+
+    # 2. Create the Staff Table
+    c.execute('''CREATE TABLE IF NOT EXISTS staff
+                 (email TEXT PRIMARY KEY, password_hash TEXT)''')
 
     # 2. Inject your specific test user so you can log in
-    c.execute('''INSERT INTO students (roll_no, name) 
-                 VALUES (%s, %s) ON CONFLICT (roll_no) DO NOTHING''', 
-              ('24B81A67R1', 'M.V.S.VISWAS'))
+    c.execute('''INSERT INTO students (roll_no) 
+                 VALUES (%s) ON CONFLICT (roll_no) DO NOTHING''', 
+              ('24B81A67R1',))
     
     # 2. Check if data already exists
     c.execute("SELECT COUNT(*) FROM history_log")
@@ -39,13 +46,22 @@ def initialize_cloud_database():
         shops = ["Meals", "Snacks", "Beverages"]
         for i in range(800):
             shop = random.choice(shops)
-            day = random.randint(0, 4)
+            day = random.randint(0, 5)  # Monday(0) to Saturday(5), Sunday excluded
             hour = random.randint(8, 17)
             
             # Simulated traffic spikes at 12 PM and 1 PM
             if hour in [12, 13]: queue_len = random.randint(40, 80)
             elif hour in [11, 14]: queue_len = random.randint(15, 30)
             else: queue_len = random.randint(0, 8)
+
+            # Add strong day-of-week signal for the ML model.
+            # Tue/Wed are heavier, Friday is lighter, Sunday is excluded above.
+            day_multiplier = 1.0
+            if day in [1, 2]:
+                day_multiplier = 1.5
+            elif day == 4:
+                day_multiplier = 0.5
+            queue_len = max(0, int(round(queue_len * day_multiplier)))
                 
             base_time = 45 if shop == "Meals" else 20
             service_duration = base_time + (queue_len * random.uniform(0.8, 1.2))
@@ -57,11 +73,12 @@ def initialize_cloud_database():
             if i % 100 == 0 and i > 0:
                 print(f"Pushed {i} rows...")
                 
-        conn.commit()
         print("Neon Cloud Database successfully initialized!")
     else:
         print("Data already exists in the cloud.")
         
+    # MOVE THESE TWO LINES HERE, UNINDENTED:
+    conn.commit() 
     conn.close()
 
 if __name__ == "__main__":
