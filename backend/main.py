@@ -21,6 +21,7 @@ app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], all
 
 class CheckInReq(BaseModel): uid: str; shop: str
 class PredictReq(BaseModel): shop: str; date_string: str; time_string: str
+class ScanCheckInReq(BaseModel): roll_no: str; shop: str
 
 def get_db_connection():
     return psycopg2.connect(DB_URL)
@@ -52,6 +53,31 @@ def join_queue(req: CheckInReq):
     conn.commit()
     conn.close()
     return {"status": "success"}
+
+@app.post("/api/scan_checkin")
+def scan_checkin(req: ScanCheckInReq):
+    conn = get_db_connection()
+    c = conn.cursor()
+
+    clean_roll_no = req.roll_no.strip().upper()
+
+    try:
+        c.execute("SELECT 1 FROM students WHERE roll_no = %s", (clean_roll_no,))
+        if not c.fetchone():
+            c.execute("INSERT INTO students (roll_no) VALUES (%s)", (clean_roll_no,))
+
+        c.execute(
+            "INSERT INTO active_queue (uid, shop, time_in) VALUES (%s, %s, %s)",
+            (clean_roll_no, req.shop, time.time())
+        )
+        conn.commit()
+    except Exception:
+        conn.rollback()
+        raise HTTPException(status_code=500, detail="Failed to process scan check-in")
+    finally:
+        conn.close()
+
+    return {"success": True, "message": "Scan check-in successful"}
 
 @app.get("/api/orders")
 def get_orders():

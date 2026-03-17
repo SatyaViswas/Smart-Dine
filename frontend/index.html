@@ -8,6 +8,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
     <script src="https://unpkg.com/lucide@latest"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
 </head>
 <body>
     <div id="root">
@@ -18,11 +19,21 @@
         </div>
         
         <h2 id="auth-title" style="margin-bottom: 0.5rem;">Smart-Dine Login</h2>
-        <p id="auth-subtitle" style="color: var(--sd-text-muted); margin-bottom: 2rem;">Enter your College Roll Number</p>
-        
-        <input type="text" id="auth-name" class="form-input" placeholder="Your Full Name" style="display: none; text-align: center; font-size: 1.1rem; margin-bottom: 1rem;">
+        <p id="auth-subtitle" style="color: var(--sd-text-muted); margin-bottom: 1rem;">Enter your College Roll Number</p>
+
+        <div id="role-selector" style="display: flex; gap: 0.75rem; margin-bottom: 1.5rem; background: var(--sd-bg-card); border-radius: 0.75rem; padding: 0.25rem;">
+            <button type="button" id="role-student-btn" style="flex: 1; padding: 0.5rem; border-radius: 0.5rem; border: none; cursor: pointer; font-weight: 600; font-size: 0.85rem; transition: all 0.2s; background: var(--sd-accent-violet); color: #fff;">
+                <i data-lucide="graduation-cap" style="width:13px;height:13px;vertical-align:middle;margin-right:4px;"></i> Student
+            </button>
+            <button type="button" id="role-staff-btn" style="flex: 1; padding: 0.5rem; border-radius: 0.5rem; border: none; cursor: pointer; font-weight: 600; font-size: 0.85rem; transition: all 0.2s; background: transparent; color: var(--sd-text-muted);">
+                <i data-lucide="chef-hat" style="width:13px;height:13px;vertical-align:middle;margin-right:4px;"></i> Staff
+            </button>
+        </div>
         
         <input type="text" id="auth-roll-no" class="form-input" placeholder="e.g. 24B81A67R1" style="text-transform: uppercase; text-align: center; font-size: 1.1rem; margin-bottom: 1.5rem;">
+        <input type="email" id="auth-email" class="form-input" placeholder="staff@college.edu" style="display: none; text-align: center; font-size: 1.1rem; margin-bottom: 1rem;">
+        <input type="password" id="auth-password" class="form-input" placeholder="Password" style="display: none; text-align: center; font-size: 1.1rem; margin-bottom: 1rem;">
+        <input type="password" id="auth-confirm-password" class="form-input" placeholder="Confirm Password" style="display: none; text-align: center; font-size: 1.1rem; margin-bottom: 1.5rem;">
         
         <button id="auth-btn" class="btn-primary" style="width: 100%; margin-bottom: 1rem;">
             <i data-lucide="log-in" id="auth-btn-icon"></i> <span id="auth-btn-text">Access Dashboard</span>
@@ -43,9 +54,6 @@
             </button>
             <button class="nav-link" data-target="planner">
                 <i data-lucide="brain-circuit"></i> <span class="nav-label">Future Planner</span>
-            </button>
-            <button class="nav-link" data-target="kds">
-                <i data-lucide="chef-hat"></i> <span class="nav-label">Staff KDS</span>
             </button>
         </nav>
 
@@ -101,9 +109,15 @@
                     </div>
 
                     <div class="action-section slide-up" style="animation-delay: 0.4s; margin-top: 2rem;">
-                        <button class="btn-primary" id="join-queue-btn">
-                            <i data-lucide="zap"></i> Join Queue Now
-                        </button>
+                        <div style="display: flex; gap: 0.75rem; flex-wrap: wrap;">
+                            <button class="btn-primary" id="join-queue-btn">
+                                <i data-lucide="zap"></i> Join Queue Now
+                            </button>
+                            <button id="scan-barcode-btn" style="background: transparent; color: var(--sd-text-primary); border: 1px solid var(--sd-border); border-radius: var(--sd-radius); padding: 0.85rem 1rem; font-weight: 600; cursor: pointer;">
+                                <i data-lucide="scan-line" style="width: 16px; height: 16px; vertical-align: middle; margin-right: 0.4rem;"></i> Scan ID Card
+                            </button>
+                        </div>
+                        <div id="reader" style="display: none; margin-top: 1rem;"></div>
                     </div>
                 </div>
             </section>
@@ -153,13 +167,7 @@
                             </div>
                             <div class="form-group">
                                 <label class="input-label"><i data-lucide="clock" style="width:14px;height:14px;"></i> Time</label>
-                                <input type="hidden" id="predict-time" value="12:00">
-                                <div class="drum-picker">
-                                    <div class="drum-highlight"></div>
-                                    <div class="drum-col" id="drum-hours"></div>
-                                    <div class="drum-sep">:</div>
-                                    <div class="drum-col" id="drum-mins"></div>
-                                </div>
+                                <input type="time" id="predict-time" class="form-input" min="08:00" max="18:00" value="12:00">
                             </div>
                             <div class="form-group full">
                                 <label class="input-label"><i data-lucide="store" style="width:14px;height:14px;"></i> Shop</label>
@@ -198,8 +206,11 @@
 
             <section id="kds" class="page-view" style="display: none;">
                 <div class="kds-page">
-                    <div class="kds-header slide-up">
+                    <div class="kds-header slide-up" style="display: flex; justify-content: space-between; align-items: center;">
                         <h1>Staff Kitchen Display</h1>
+                        <button id="staff-logout-btn" style="background: var(--sd-danger); color: #fff; border: none; border-radius: 0.5rem; padding: 0.5rem 1rem; cursor: pointer; font-weight: 600; font-size: 0.9rem; transition: all 0.2s;">
+                            <i data-lucide="log-out" style="width:16px;height:16px;vertical-align:middle;margin-right:6px;"></i> Logout
+                        </button>
                     </div>
 
                     <div class="glass-card kds-summary slide-up" style="animation-delay: 0.1s; display: flex; gap: 2rem; margin-bottom: 2rem;">

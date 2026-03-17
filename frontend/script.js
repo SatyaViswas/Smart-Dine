@@ -3,7 +3,7 @@ lucide.createIcons();
 
 // --- STATE MANAGEMENT ---
 const API_HOST = window.location.hostname || '127.0.0.1';
-const BASE_URL = `http://${API_HOST}:8000/api`;
+const BASE_URL = `https://sharp-bats-sip.loca.lt/api`;
 
 // --- AUTHENTICATION LOGIC (LOGIN & SIGNUP) ---
 const authScreen = document.getElementById('auth-screen');
@@ -11,92 +11,136 @@ const appContent = document.getElementById('app-content');
 const navBar = document.querySelector('.nav-floating');
 
 let isLoginMode = true; // Tracks whether we are logging in or signing up
+let isStaffMode = false; // Tracks whether the active role is Staff or Student
 
 // Check if user is already logged in
+const savedRole   = localStorage.getItem('userRole');
 const savedRollNo = localStorage.getItem('userRollNo');
-const savedName = localStorage.getItem('userName');
+const savedEmail  = localStorage.getItem('userEmail');
 
-if (savedRollNo && savedName) {
-    completeLogin(savedName, savedRollNo);
+if (savedRole === 'student' && savedRollNo) {
+    completeLogin('student', savedRollNo);
+} else if (savedRole === 'staff' && savedEmail) {
+    completeLogin('staff', savedEmail);
 } else {
     appContent.style.display = 'none';
     navBar.style.display = 'none';
 }
 
+// --- ROLE TOGGLE LISTENERS ---
+document.getElementById('role-student-btn').addEventListener('click', () => {
+    isStaffMode = false;
+    document.getElementById('role-student-btn').style.cssText =
+        'flex:1;padding:0.5rem;border-radius:0.5rem;border:none;cursor:pointer;font-weight:600;font-size:0.85rem;transition:all 0.2s;background:var(--sd-accent-violet);color:#fff;';
+    document.getElementById('role-staff-btn').style.cssText =
+        'flex:1;padding:0.5rem;border-radius:0.5rem;border:none;cursor:pointer;font-weight:600;font-size:0.85rem;transition:all 0.2s;background:transparent;color:var(--sd-text-muted);';
+    document.getElementById('auth-error').style.display = 'none';
+    updateAuthForm();
+});
+
+document.getElementById('role-staff-btn').addEventListener('click', () => {
+    isStaffMode = true;
+    document.getElementById('role-staff-btn').style.cssText =
+        'flex:1;padding:0.5rem;border-radius:0.5rem;border:none;cursor:pointer;font-weight:600;font-size:0.85rem;transition:all 0.2s;background:var(--sd-accent-violet);color:#fff;';
+    document.getElementById('role-student-btn').style.cssText =
+        'flex:1;padding:0.5rem;border-radius:0.5rem;border:none;cursor:pointer;font-weight:600;font-size:0.85rem;transition:all 0.2s;background:transparent;color:var(--sd-text-muted);';
+    document.getElementById('auth-error').style.display = 'none';
+    updateAuthForm();
+});
+
 // Handle switching between Login and Sign Up
 document.getElementById('auth-switch-btn').addEventListener('click', (e) => {
     e.preventDefault();
     isLoginMode = !isLoginMode;
-    document.getElementById('auth-error').style.display = 'none'; // Clear errors
-    
-    if (isLoginMode) {
-        document.getElementById('auth-title').textContent = "Smart-Dine Login";
-        document.getElementById('auth-subtitle').textContent = "Enter your College Roll Number";
-        document.getElementById('auth-name').style.display = 'none';
-        document.getElementById('auth-btn-text').textContent = "Access Dashboard";
-        document.getElementById('auth-switch-text').textContent = "Don't have an account?";
-        document.getElementById('auth-switch-btn').textContent = "Sign Up";
-    } else {
-        document.getElementById('auth-title').textContent = "Create Account";
-        document.getElementById('auth-subtitle').textContent = "Register for Smart-Dine Campus";
-        document.getElementById('auth-name').style.display = 'block';
-        document.getElementById('auth-btn-text').textContent = "Create Account";
-        document.getElementById('auth-switch-text').textContent = "Already have an account?";
-        document.getElementById('auth-switch-btn').textContent = "Log In";
-    }
+    document.getElementById('auth-error').style.display = 'none';
+    updateAuthForm();
 });
+
+function updateAuthForm() {
+    const isLogin = isLoginMode;
+    const isStaff = isStaffMode;
+
+    document.getElementById('auth-title').textContent = isStaff
+        ? (isLogin ? 'Staff Login' : 'Staff Registration')
+        : (isLogin ? 'Smart-Dine Login' : 'Create Account');
+    document.getElementById('auth-subtitle').textContent = isStaff
+        ? (isLogin ? 'Sign in with your staff email' : 'Create a staff account')
+        : (isLogin ? 'Enter your College Roll Number' : 'Register for Smart-Dine Campus');
+
+    document.getElementById('auth-roll-no').style.display          = isStaff ? 'none'  : 'block';
+    document.getElementById('auth-email').style.display            = isStaff ? 'block' : 'none';
+    document.getElementById('auth-password').style.display         = isStaff ? 'block' : 'none';
+    document.getElementById('auth-confirm-password').style.display = (isStaff && !isLogin) ? 'block' : 'none';
+
+    document.getElementById('auth-btn-text').textContent    = isLogin ? 'Access Dashboard' : 'Create Account';
+    document.getElementById('auth-switch-text').textContent = isLogin ? "Don't have an account?" : 'Already have an account?';
+    document.getElementById('auth-switch-btn').textContent  = isLogin ? 'Sign Up' : 'Log In';
+}
 
 // Handle the Form Submission
 document.getElementById('auth-btn').addEventListener('click', async () => {
-    const rollNoInput = document.getElementById('auth-roll-no').value.trim();
-    const nameInput = document.getElementById('auth-name').value.trim();
     const btnText = document.getElementById('auth-btn-text');
-    const errorMsg = document.getElementById('auth-error');
-    
-    if (!rollNoInput) {
-        showAuthError("Roll Number is required.");
-        return;
-    }
-    if (!isLoginMode && !nameInput) {
-        showAuthError("Full Name is required for Sign Up.");
-        return;
-    }
-    
-    // UI Loading State
     const originalText = btnText.textContent;
-    btnText.innerHTML = "Processing...";
-    
-    try {
-        const endpoint = isLoginMode ? "/login" : "/signup";
-        const payload = isLoginMode ? { roll_no: rollNoInput } : { roll_no: rollNoInput, name: nameInput };
-        
-        const res = await fetch(`${BASE_URL}${endpoint}`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(payload)
-        });
-        
-        const data = await res.json();
-        
-        if (res.ok) {
-            // Save to browser memory
-            localStorage.setItem('userRollNo', data.roll_no);
-            localStorage.setItem('userName', data.name);
-            completeLogin(data.name, data.roll_no);
-        } else {
-            // FIX: If FastAPI sends an array of validation errors, map them to readable text
-            if (Array.isArray(data.detail)) {
-                const errorMessages = data.detail.map(err => `${err.loc[1]}: ${err.msg}`).join(', ');
-                showAuthError("Server Error - " + errorMessages);
-            } else {
-                showAuthError(data.detail || "Authentication failed.");
-            }
+    document.getElementById('auth-error').style.display = 'none';
+
+    if (isStaffMode) {
+        // --- STAFF AUTH FLOW ---
+        const email    = document.getElementById('auth-email').value.trim();
+        const password = document.getElementById('auth-password').value;
+        if (!email || !password) { showAuthError('Email and password are required.'); return; }
+        if (!isLoginMode) {
+            const confirmPwd = document.getElementById('auth-confirm-password').value;
+            if (password !== confirmPwd) { showAuthError('Passwords do not match.'); return; }
         }
-    } catch (e) {
-        showAuthError("Server offline. Please check your connection.");
-    } finally {
-        if(authScreen.style.display !== 'none') {
-            btnText.textContent = originalText;
+        btnText.textContent = 'Processing...';
+        try {
+            const endpoint = isLoginMode ? '/staff/login' : '/staff/signup';
+            const res = await fetch(`${BASE_URL}${endpoint}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ email, password })
+            });
+            const data = await res.json();
+            if (res.ok) {
+                localStorage.setItem('userRole', 'staff');
+                localStorage.setItem('userEmail', data.email);
+                completeLogin('staff', data.email);
+            } else {
+                showAuthError(Array.isArray(data.detail)
+                    ? 'Server Error - ' + data.detail.map(e => `${e.loc[1]}: ${e.msg}`).join(', ')
+                    : (data.detail || 'Authentication failed.'));
+            }
+        } catch (e) {
+            showAuthError('Server offline. Please check your connection.');
+        } finally {
+            if (authScreen.style.display !== 'none') btnText.textContent = originalText;
+        }
+    } else {
+        // --- STUDENT AUTH FLOW ---
+        const rollNoInput = document.getElementById('auth-roll-no').value.trim();
+        if (!rollNoInput) { showAuthError('Roll Number is required.'); return; }
+        btnText.textContent = 'Processing...';
+        try {
+            const endpoint = isLoginMode ? '/login' : '/signup';
+            const res = await fetch(`${BASE_URL}${endpoint}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ roll_no: rollNoInput })
+            });
+            const data = await res.json();
+            if (res.ok) {
+                localStorage.setItem('userRole', 'student');
+                localStorage.setItem('userRollNo', data.roll_no);
+                completeLogin('student', data.roll_no);
+            } else {
+                showAuthError(Array.isArray(data.detail)
+                    ? 'Server Error - ' + data.detail.map(e => `${e.loc[1]}: ${e.msg}`).join(', ')
+                    : (data.detail || 'Authentication failed.'));
+            }
+        } catch (e) {
+            showAuthError('Server offline. Please check your connection.');
+        } finally {
+            if (authScreen.style.display !== 'none') btnText.textContent = originalText;
         }
     }
 });
@@ -107,16 +151,25 @@ function showAuthError(message) {
     errorMsg.style.display = 'block';
 }
 
-function completeLogin(name, rollNo) {
+function completeLogin(role, identifier) {
     authScreen.style.display = 'none';
     appContent.style.display = 'block';
-    navBar.style.display = 'flex';
-    
-    document.querySelector('.dashboard-header h1').textContent = `Welcome, ${name}`;
-    document.querySelector('.dashboard-header p').textContent = `Smart-Dine Campus Canteen | ${rollNo}`;
-    
-    const initials = name.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase();
-    document.querySelector('.avatar').textContent = initials;
+
+    if (role === 'staff') {
+        navBar.style.display = 'none';
+        document.getElementById('dashboard').style.display = 'none';
+        document.getElementById('planner').style.display   = 'none';
+        document.getElementById('kds').style.display       = 'block';
+        document.querySelector('.kds-header h1').textContent = 'Welcome, Staff';
+    } else {
+        navBar.style.display = 'flex';
+        document.getElementById('dashboard').style.display = 'block';
+        document.getElementById('planner').style.display   = 'none';
+        document.getElementById('kds').style.display       = 'none';
+        document.querySelector('.dashboard-header h1').textContent = 'Welcome, Student';
+        document.querySelector('.dashboard-header p').textContent  = `Smart-Dine Campus Canteen | ${identifier}`;
+        document.querySelector('.avatar').textContent = 'ST';
+    }
 }
 
 document.querySelector('.avatar').addEventListener('click', () => {
@@ -125,7 +178,17 @@ document.querySelector('.avatar').addEventListener('click', () => {
         location.reload();
     }
 });
+
+document.getElementById('staff-logout-btn').addEventListener('click', () => {
+    if(confirm("Do you want to logout?")) {
+        localStorage.clear();
+        location.reload();
+    }
+});
 let currentShop = 'Meals';
+const SHOPS = ['Meals', 'Snacks', 'Beverages'];
+const statusCache = {};
+let dashboardRequestSeq = 0;
 
 async function fetchJson(url, options = {}) {
     const res = await fetch(url, options);
@@ -157,41 +220,78 @@ shopTabs.forEach(tab => {
         shopTabs.forEach(t => t.classList.remove('active'));
         e.target.classList.add('active');
         currentShop = e.target.getAttribute('data-shop');
-        updateDashboardUI();
+        renderShopChrome(currentShop);
+        if (statusCache[currentShop]) {
+            renderDashboardData(currentShop, statusCache[currentShop]);
+        }
+        updateDashboardUI({ shop: currentShop, silent: true });
     });
 });
 
-async function updateDashboardUI() {
-    try {
-        const data = await fetchJson(`${BASE_URL}/status?shop=${currentShop}`);
-        const avgSpeedSeconds = Number.isFinite(data.avg_speed_seconds) ? Math.max(0, data.avg_speed_seconds) : 0;
-        const avgMinutes = Math.floor(avgSpeedSeconds / 60);
-        const avgSeconds = avgSpeedSeconds % 60;
-        const formattedAvgSpeed = `${avgMinutes}m ${avgSeconds}s`;
-        
-        document.getElementById('queue-val').textContent = data.queue;
-        document.getElementById('wait-val').textContent = data.wait;
-        document.getElementById('kds-avg-speed').textContent = formattedAvgSpeed;
-        
-        const seatsCard = document.getElementById('seats-card');
-        if (currentShop === 'Meals') {
-            seatsCard.style.display = 'block';
-            document.getElementById('seats-val').textContent = data.seats;
-            document.getElementById('seat-text').textContent = data.seats;
-            const offset = (2 * Math.PI * 28) - (data.seats / 120) * (2 * Math.PI * 28);
-            document.getElementById('seat-ring').style.strokeDasharray = 2 * Math.PI * 28;
-            document.getElementById('seat-ring').style.strokeDashoffset = offset;
-        } else {
-            seatsCard.style.display = 'none';
-        }
+function renderShopChrome(shop) {
+    document.getElementById('seats-card').style.display = shop === 'Meals' ? 'block' : 'none';
+}
 
-        const badge = document.getElementById('traffic-badge');
-        badge.className = 'badge-glow ' + (data.traffic === 'High' ? 'danger' : data.traffic === 'Medium' ? 'warning' : 'success');
-        badge.innerHTML = `<i data-lucide="zap" style="width: 12px; height: 12px;"></i> ${data.traffic} Traffic`;
-        lucide.createIcons();
+function renderDashboardData(shop, data) {
+    const avgSpeedSeconds = Number.isFinite(data.avg_speed_seconds) ? Math.max(0, data.avg_speed_seconds) : 0;
+    const avgMinutes = Math.floor(avgSpeedSeconds / 60);
+    const avgSeconds = avgSpeedSeconds % 60;
+    const formattedAvgSpeed = `${avgMinutes}m ${avgSeconds}s`;
+
+    document.getElementById('queue-val').textContent = data.queue;
+    document.getElementById('wait-val').textContent = data.wait;
+    document.getElementById('kds-avg-speed').textContent = formattedAvgSpeed;
+
+    const seatsCard = document.getElementById('seats-card');
+    if (shop === 'Meals') {
+        seatsCard.style.display = 'block';
+        document.getElementById('seats-val').textContent = data.seats;
+        document.getElementById('seat-text').textContent = data.seats;
+        const offset = (2 * Math.PI * 28) - (data.seats / 120) * (2 * Math.PI * 28);
+        document.getElementById('seat-ring').style.strokeDasharray = 2 * Math.PI * 28;
+        document.getElementById('seat-ring').style.strokeDashoffset = offset;
+    } else {
+        seatsCard.style.display = 'none';
+    }
+
+    const badge = document.getElementById('traffic-badge');
+    badge.className = 'badge-glow ' + (data.traffic === 'High' ? 'danger' : data.traffic === 'Medium' ? 'warning' : 'success');
+    badge.innerHTML = `<i data-lucide="zap" style="width: 12px; height: 12px;"></i> ${data.traffic} Traffic`;
+    lucide.createIcons();
+}
+
+async function updateDashboardUI({ shop = currentShop, silent = false } = {}) {
+    const requestId = ++dashboardRequestSeq;
+
+    try {
+        const data = await fetchJson(`${BASE_URL}/status?shop=${encodeURIComponent(shop)}`);
+        statusCache[shop] = data;
+
+        if (shop === currentShop && requestId === dashboardRequestSeq) {
+            renderDashboardData(shop, data);
+        }
     } catch (e) {
         console.error("API Offline", e);
-        showToast("Backend is offline. Start FastAPI server.", "error");
+        if (!silent && !statusCache[shop]) {
+            showToast("Backend is offline. Start FastAPI server.", "error");
+        }
+    }
+}
+
+async function prefetchDashboardStatuses() {
+    await Promise.all(
+        SHOPS.map(async (shop) => {
+            try {
+                const data = await fetchJson(`${BASE_URL}/status?shop=${encodeURIComponent(shop)}`);
+                statusCache[shop] = data;
+            } catch (e) {
+                console.error(`Failed to prefetch ${shop} status`, e);
+            }
+        })
+    );
+
+    if (statusCache[currentShop]) {
+        renderDashboardData(currentShop, statusCache[currentShop]);
     }
 }
 
@@ -209,6 +309,59 @@ document.getElementById('join-queue-btn').addEventListener('click', async () => 
     }
 });
 
+let qrScanner = null;
+document.getElementById('scan-barcode-btn').addEventListener('click', () => {
+    const readerEl = document.getElementById('reader');
+    readerEl.style.display = 'block';
+
+    if (!window.Html5QrcodeScanner) {
+        showToast('Scanner library failed to load.', 'error');
+        return;
+    }
+
+    if (qrScanner) {
+        showToast('Scanner is already running.', 'error');
+        return;
+    }
+
+    qrScanner = new Html5QrcodeScanner(
+        'reader',
+        { fps: 10, qrbox: { width: 250, height: 100 } },
+        false
+    );
+
+    qrScanner.render(
+        async (decodedText) => {
+            const rollNo = (decodedText || '').trim();
+            if (!rollNo) {
+                showToast('Scanned code is empty.', 'error');
+                return;
+            }
+
+            try {
+                await qrScanner.clear();
+            } catch (e) {
+                console.warn('Failed to clear scanner cleanly', e);
+            }
+            qrScanner = null;
+            readerEl.style.display = 'none';
+
+            try {
+                await fetchJson(`${BASE_URL}/scan_checkin`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ roll_no: rollNo, shop: currentShop })
+                });
+                showToast(`Scan check-in successful for ${rollNo}`);
+                updateDashboardUI();
+            } catch (e) {
+                showToast('Scan check-in failed. Please try again.', 'error');
+            }
+        },
+        () => {}
+    );
+});
+
 // --- FUTURE PLANNER LOGIC & DYNAMIC GRAPH ---
 let chartInstance = null;
 document.getElementById('predict-btn').addEventListener('click', async () => {
@@ -218,6 +371,10 @@ document.getElementById('predict-btn').addEventListener('click', async () => {
     const shop = document.getElementById('predict-shop').value;
 
     if (!date || !time) { showToast("Please select a date and time.", "error"); return; }
+    if (time < '08:00' || time > '18:00') {
+        showToast('Please select a time between 08:00 and 18:00.', 'error');
+        return;
+    }
     btn.innerHTML = `<i data-lucide="loader"></i> Analyzing...`; lucide.createIcons();
     
     try {
@@ -356,12 +513,27 @@ function showToast(message, type = 'success') {
 
     function selectDate(ds) {
         dateInput.value = ds;
+        dateInput.dispatchEvent(new Event('change'));
+        if (!dateInput.value) {
+            document.getElementById('date-display').textContent = 'Select date';
+            syncPills();
+            renderCalGrid();
+            return;
+        }
         document.getElementById('date-display').textContent = formatDisplay(ds);
         popup.classList.remove('open');
         trigger.classList.remove('open');
         syncPills();
         renderCalGrid();
     }
+
+    dateInput.addEventListener('change', function () {
+        if (!this.value) return;
+        if (new Date(this.value).getDay() === 0) {
+            showToast('Canteen is closed on Sundays', 'error');
+            this.value = '';
+        }
+    });
 
     function syncPills() {
         document.querySelectorAll('.date-shortcut-btn').forEach(btn => {
@@ -405,58 +577,20 @@ function showToast(message, type = 'success') {
     });
 
     selectDate(toLocalStr(new Date())); // default: today
-
-    // ── Drum Time Picker ─────────────────────────────────────────
-    const ITEM_H    = 44;
-    const timeInput = document.getElementById('predict-time');
-
-    const hourItems = [];
-    for (let h = 6; h <= 22; h++) {
-        hourItems.push({ val: h, label: h < 12 ? `${h} AM` : h === 12 ? '12 PM' : `${h - 12} PM` });
-    }
-    const minItems = [
-        { val: 0, label: '00' }, { val: 15, label: '15' },
-        { val: 30, label: '30' }, { val: 45, label: '45' }
-    ];
-
-    function buildDrumCol(el, items) {
-        el.innerHTML =
-            `<div style="height:${ITEM_H}px;flex-shrink:0;"></div>` +
-            items.map(it => `<div class="drum-item" data-val="${it.val}">${it.label}</div>`).join('') +
-            `<div style="height:${ITEM_H}px;flex-shrink:0;"></div>`;
-    }
-
-    buildDrumCol(document.getElementById('drum-hours'), hourItems);
-    buildDrumCol(document.getElementById('drum-mins'),  minItems);
-
-    function snapTo(el, idx) { el.scrollTop = idx * ITEM_H; }
-    snapTo(document.getElementById('drum-hours'), 6); // default 12 PM (6 AM = idx 0)
-    snapTo(document.getElementById('drum-mins'),  0); // default :00
-
-    function updateTimeInput() {
-        const hEl  = document.getElementById('drum-hours');
-        const mEl  = document.getElementById('drum-mins');
-        const hIdx = Math.min(Math.max(Math.round(hEl.scrollTop / ITEM_H), 0), hourItems.length - 1);
-        const mIdx = Math.min(Math.max(Math.round(mEl.scrollTop / ITEM_H), 0), minItems.length - 1);
-        timeInput.value = `${String(hourItems[hIdx].val).padStart(2,'0')}:${String(minItems[mIdx].val).padStart(2,'0')}`;
-    }
-
-    ['drum-hours', 'drum-mins'].forEach(id =>
-        document.getElementById(id).addEventListener('scroll', updateTimeInput)
-    );
-
-    updateTimeInput();
 })();
 
 // Initial Calls
-updateDashboardUI();
+renderShopChrome(currentShop);
+prefetchDashboardStatuses();
+updateDashboardUI({ shop: currentShop, silent: true });
 renderOrders();
 
 // Silently fetch new data from the database every 5 seconds!
 setInterval(() => {
     // Only update the dashboard if the user is currently looking at it
     if (document.getElementById('dashboard').style.display !== 'none') {
-        updateDashboardUI();
+        prefetchDashboardStatuses();
+        updateDashboardUI({ shop: currentShop, silent: true });
     }
     // Only update the kitchen screen if the staff is looking at it
     if (document.getElementById('kds').style.display !== 'none') {
