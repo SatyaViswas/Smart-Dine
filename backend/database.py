@@ -32,7 +32,10 @@ def initialize_cloud_database():
 
     # 2. Create the Staff Table
     c.execute('''CREATE TABLE IF NOT EXISTS staff
-                 (email TEXT PRIMARY KEY, password_hash TEXT)''')
+                 (email TEXT PRIMARY KEY, password_hash TEXT, shop TEXT)''')
+
+    # Ensure existing deployments also have the shop column
+    c.execute('''ALTER TABLE staff ADD COLUMN IF NOT EXISTS shop TEXT''')
 
     # 2. Inject your specific test user so you can log in
     c.execute('''INSERT INTO students (roll_no) 
