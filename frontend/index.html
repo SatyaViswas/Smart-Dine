@@ -83,24 +83,24 @@
                         <div class="glass-card metric-card">
                             <div class="metric-icon violet"><i data-lucide="users"></i></div>
                             <div class="metric-label">Current Queue</div>
-                            <div class="metric-value" id="queue-val">24</div>
+                            <div class="metric-value" id="queue-val">-</div>
                         </div>
                         <div class="glass-card metric-card">
                             <div class="metric-icon amber"><i data-lucide="clock"></i></div>
                             <div class="metric-label">Estimated Wait</div>
-                            <div class="metric-value"><span id="wait-val">12</span> <span style="font-size: 1rem;">Mins</span></div>
+                            <div class="metric-value"><span id="wait-val">-</span> <span style="font-size: 1rem;">Mins</span></div>
                         </div>
                         <div class="glass-card metric-card full-width" id="seats-card">
                             <div class="seats-row">
                                 <div>
                                     <div class="metric-icon emerald" style="margin-bottom: 0.5rem;"><i data-lucide="armchair"></i></div>
                                     <div class="metric-label">Available Seats</div>
-                                    <div class="metric-value"><span id="seats-val">45</span> <span style="font-size: 1rem; color: var(--sd-text-muted);">/ 120</span></div>
+                                    <div class="metric-value"><span id="seats-val">-</span> <span style="font-size: 1rem; color: var(--sd-text-muted);">/ 120</span></div>
                                 </div>
                                 <svg width="72" height="72" viewBox="0 0 72 72">
                                     <circle cx="36" cy="36" r="28" fill="none" stroke-width="6" class="progress-ring-bg" />
                                     <circle cx="36" cy="36" r="28" fill="none" stroke-width="6" class="progress-ring-fill" id="seat-ring" stroke-linecap="round" transform="rotate(-90 36 36)" />
-                                    <text x="36" y="42" text-anchor="middle" font-size="16" font-weight="700" fill="var(--sd-text-primary)" id="seat-text">45</text>
+                                    <text x="36" y="42" text-anchor="middle" font-size="16" font-weight="700" fill="var(--sd-text-primary)" id="seat-text">-</text>
                                 </svg>
                             </div>
                         </div>
@@ -109,19 +109,11 @@
                     <div class="status-row slide-up" style="animation-delay: 0.3s;">
                         <span class="status-label">Campus Traffic Status</span>
                         <span class="badge-glow warning" id="traffic-badge">
-                            <i data-lucide="zap" style="width: 12px; height: 12px;"></i> Medium Traffic
+                            <i data-lucide="zap" style="width: 12px; height: 12px;"></i> -
                         </span>
                     </div>
 
                     <div class="action-section slide-up" style="animation-delay: 0.4s; margin-top: 2rem;">
-                        <div class="select-wrap" style="max-width: 280px; margin-bottom: 0.9rem;">
-                            <select id="student-shop-selector" class="form-input">
-                                <option value="Meals">Meals</option>
-                                <option value="Snacks">Snacks</option>
-                                <option value="Beverages">Beverages</option>
-                            </select>
-                            <i data-lucide="chevron-down" class="select-arrow"></i>
-                        </div>
                         <div style="display: flex; gap: 0.75rem; flex-wrap: wrap;">
                             <button class="btn-primary" id="join-queue-btn">
                                 <i data-lucide="zap"></i> Join Queue Now
@@ -228,11 +220,11 @@
 
                     <div class="glass-card kds-summary slide-up" style="animation-delay: 0.1s; display: flex; gap: 2rem; margin-bottom: 2rem;">
                         <div class="kds-stat">
-                            <h3 id="active-orders-count">3</h3>
+                            <h3 id="active-orders-count">-</h3>
                             <p><i data-lucide="clipboard-list" style="width: 14px; height: 14px;"></i> Active Orders</p>
                         </div>
                         <div class="kds-stat">
-                            <h3 id="kds-avg-speed">1m 15s</h3>
+                            <h3 id="kds-avg-speed">-</h3>
                             <p><i data-lucide="timer" style="width: 14px; height: 14px;"></i> Avg Speed</p>
                         </div>
                     </div>

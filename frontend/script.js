@@ -3,7 +3,7 @@ lucide.createIcons();
 
 // --- STATE MANAGEMENT ---
 const API_HOST = window.location.hostname || '127.0.0.1';
-const BASE_URL = `https://sweet-kiwis-cross.loca.lt/api`;
+const BASE_URL = `https://kind-donkeys-learn.loca.lt/api`;
 
 // --- AUTHENTICATION LOGIC (LOGIN & SIGNUP) ---
 const authScreen = document.getElementById('auth-screen');
