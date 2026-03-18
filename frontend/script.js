@@ -3,7 +3,7 @@ lucide.createIcons();
 
 // --- STATE MANAGEMENT ---
 const API_HOST = window.location.hostname || '127.0.0.1';
-const BASE_URL = `https://kind-donkeys-learn.loca.lt/api`;
+const BASE_URL = `https://spencer-worker-sampling-upc.trycloudflare.com/api`;
 
 // --- AUTHENTICATION LOGIC (LOGIN & SIGNUP) ---
 const authScreen = document.getElementById('auth-screen');
@@ -466,18 +466,21 @@ document.getElementById('predict-btn').addEventListener('click', async () => {
         document.getElementById('pred-wait-val').textContent = data.predicted_wait_mins;
         document.getElementById('pred-queue-val').textContent = data.predicted_queue;
         
-        // Pass the real ML array to the chart!
-        renderChart(data.hourly_graph); 
+        // Pass minute-level graph data and labels from backend
+        renderChart(data.hourly_graph, data.graph_labels);
     } catch (e) { showToast("Prediction failed", "error"); }
     
     btn.innerHTML = `<i data-lucide="search"></i> Predict Wait Time`; lucide.createIcons();
 });
 
 // Update renderChart to accept the real ML array
-function renderChart(mlDataArray) {
+function renderChart(mlDataArray, graphLabels) {
     const ctx = document.getElementById('predictionChart').getContext('2d');
     if (chartInstance) chartInstance.destroy();
     const safeMlDataArray = Array.isArray(mlDataArray) ? mlDataArray : [];
+    const safeGraphLabels = Array.isArray(graphLabels) && graphLabels.length === safeMlDataArray.length
+        ? graphLabels
+        : ['9 AM', '10 AM', '11 AM', '12 PM', '1 PM', '2 PM', '3 PM', '4 PM', '5 PM'];
     const yAxisMax = (safeMlDataArray.length ? Math.max(...safeMlDataArray) : 0) + 10;
     const gradient = ctx.createLinearGradient(0, 0, 0, 200);
     gradient.addColorStop(0, 'rgba(124, 58, 237, 0.3)'); gradient.addColorStop(1, 'rgba(124, 58, 237, 0)');
@@ -485,7 +488,7 @@ function renderChart(mlDataArray) {
     chartInstance = new Chart(ctx, {
         type: 'line',
         data: { 
-            labels: ['9 AM', '10 AM', '11 AM', '12 PM', '1 PM', '2 PM', '3 PM', '4 PM', '5 PM'], 
+            labels: safeGraphLabels,
             datasets: [{ 
                 label: 'Predicted Queue Length', 
                 data: safeMlDataArray,

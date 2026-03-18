@@ -1,5 +1,6 @@
 import psycopg2
 import random
+import math
 import os
 from dotenv import load_dotenv
 
@@ -20,7 +21,10 @@ def initialize_cloud_database():
                  (id SERIAL PRIMARY KEY, uid TEXT, shop TEXT, time_in REAL)''')
                   
     c.execute('''CREATE TABLE IF NOT EXISTS history_log 
-                 (id SERIAL PRIMARY KEY, uid TEXT, shop TEXT, day_of_week INTEGER, hour_of_day INTEGER, queue_length INTEGER, service_duration REAL)''')
+                 (id SERIAL PRIMARY KEY, uid TEXT, shop TEXT, day_of_week INTEGER, hour_of_day INTEGER, minute INTEGER, queue_length INTEGER, service_duration REAL)''')
+
+    # Ensure existing deployments also have minute-level granularity support
+    c.execute('''ALTER TABLE history_log ADD COLUMN IF NOT EXISTS minute INTEGER''')
     # Add this right below where you create the active_queue and history_log tables
 
     # 1. Create the Students Table
@@ -42,40 +46,54 @@ def initialize_cloud_database():
                  VALUES (%s) ON CONFLICT (roll_no) DO NOTHING''', 
               ('24B81A67R1',))
     
-    # 2. Check if data already exists
+    # Check if data already exists
     c.execute("SELECT COUNT(*) FROM history_log")
     if c.fetchone()[0] == 0:
-        print("Injecting 800 rows of realistic training data into Neon Cloud...")
+        print("Injecting 2500 rows of highly realistic training data...")
         shops = ["Meals", "Snacks", "Beverages"]
-        for i in range(800):
-            shop = random.choice(shops)
-            day = random.randint(0, 5)  # Monday(0) to Saturday(5), Sunday excluded
-            hour = random.randint(8, 17)
-            
-            # Simulated traffic spikes at 12 PM and 1 PM
-            if hour in [12, 13]: queue_len = random.randint(40, 80)
-            elif hour in [11, 14]: queue_len = random.randint(15, 30)
-            else: queue_len = random.randint(0, 8)
 
-            # Add strong day-of-week signal for the ML model.
-            # Tue/Wed are heavier, Friday is lighter, Sunday is excluded above.
-            day_multiplier = 1.0
-            if day in [1, 2]:
-                day_multiplier = 1.5
-            elif day == 4:
-                day_multiplier = 0.5
-            queue_len = max(0, int(round(queue_len * day_multiplier)))
-                
-            base_time = 45 if shop == "Meals" else 20
-            service_duration = base_time + (queue_len * random.uniform(0.8, 1.2))
-            
-            # Postgres uses %s for placeholders instead of ?
-            c.execute('''INSERT INTO history_log (uid, shop, day_of_week, hour_of_day, queue_length, service_duration) VALUES (%s, %s, %s, %s, %s, %s)''', 
-                      (f"UID_{random.randint(1000,9999)}", shop, day, hour, queue_len, service_duration))
-            
+        # Monday=0, Tuesday=1, Wed=2, Thu=3, Fri=4, Sat=5
+        day_multipliers = {0: 1.0, 1: 1.15, 2: 1.25, 3: 1.0, 4: 0.75, 5: 0.3}
+
+        for i in range(2500):
+            shop = random.choice(shops)
+            day = random.randint(0, 5)
+            hour = random.randint(8, 17)
+            minute = random.randint(0, 59)
+            time_float = hour + (minute / 60.0)
+
+            if shop == "Meals":
+                base_queue = random.randint(0, 4)  # Allows for completely dead periods (0-2 people)
+                # One massive, wide curve centered at 1:00 PM (13.0) covering 12:10 to 14:00
+                lunch_rush = 36 * math.exp(-((time_float - 13.0) ** 2) / 1.5)
+                queue_len = base_queue + lunch_rush
+                service_duration = random.uniform(35.0, 42.0)
+
+            elif shop == "Snacks":
+                base_queue = random.randint(1, 5)  # Snacks have slightly more baseline traffic
+                peak_morn = 12 * math.exp(-((time_float - 10.8) ** 2) / 0.5)
+                peak_lunch = 12 * math.exp(-((time_float - 13.0) ** 2) / 1.5)
+                peak_eve = 15 * math.exp(-((time_float - 16.0) ** 2) / 0.8)
+                queue_len = base_queue + peak_morn + peak_lunch + peak_eve
+                service_duration = random.uniform(15.0, 20.0)
+
+            elif shop == "Beverages":
+                base_queue = random.randint(0, 2)  # Beverages can easily be empty
+                peak_lunch = 8 * math.exp(-((time_float - 13.0) ** 2) / 1.5)
+                peak_eve = 6 * math.exp(-((time_float - 16.0) ** 2) / 1.0)
+                queue_len = base_queue + peak_lunch + peak_eve
+                service_duration = random.uniform(55.0, 65.0)
+
+            # Apply the day multiplier and ensure queue doesn't drop below 0
+            queue_len = max(0, int(round(queue_len * day_multipliers[day])))
+
+            c.execute('''INSERT INTO history_log (uid, shop, day_of_week, hour_of_day, minute, queue_length, service_duration)
+                         VALUES (%s, %s, %s, %s, %s, %s, %s)''',
+                      (f"UID_{random.randint(1000,9999)}", shop, day, hour, minute, queue_len, service_duration))
+
             if i % 100 == 0 and i > 0:
                 print(f"Pushed {i} rows...")
-                
+
         print("Neon Cloud Database successfully initialized!")
     else:
         print("Data already exists in the cloud.")

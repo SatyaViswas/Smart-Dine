@@ -132,12 +132,13 @@ def serve_order(order_id: int):
         if order:
             duration = time.time() - order[2]
             now = datetime.now()
+            current_minute = now.minute
 
             c.execute("SELECT COUNT(*) FROM active_queue WHERE shop=%s", (order[1],))
             queue = c.fetchone()[0]
 
-            c.execute("INSERT INTO history_log (uid, shop, day_of_week, hour_of_day, queue_length, service_duration) VALUES (%s, %s, %s, %s, %s, %s)",
-                      (order[0], order[1], now.weekday(), now.hour, queue, duration))
+            c.execute("INSERT INTO history_log (uid, shop, day_of_week, hour_of_day, minute, queue_length, service_duration) VALUES (%s, %s, %s, %s, %s, %s, %s)",
+                      (order[0], order[1], now.weekday(), now.hour, current_minute, queue, duration))
             c.execute("DELETE FROM active_queue WHERE id=%s", (order_id,))
             conn.commit()
 
@@ -153,7 +154,7 @@ def serve_order(order_id: int):
 def predict_wait(req: PredictReq):
     date_obj = datetime.strptime(req.date_string, "%Y-%m-%d")
     time_obj = datetime.strptime(req.time_string, "%H:%M")
-    return predict_future_wait(req.shop, date_obj.weekday(), time_obj.hour)
+    return predict_future_wait(req.shop, date_obj.weekday(), time_obj.hour, time_obj.minute)
 
 
 class SignupReq(BaseModel): 
