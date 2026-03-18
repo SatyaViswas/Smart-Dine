@@ -33,6 +33,11 @@
         <input type="text" id="auth-roll-no" class="form-input" placeholder="e.g. 24B81A67R1" style="text-transform: uppercase; text-align: center; font-size: 1.1rem; margin-bottom: 1.5rem;">
         <input type="email" id="auth-email" class="form-input" placeholder="staff@college.edu" style="display: none; text-align: center; font-size: 1.1rem; margin-bottom: 1rem;">
         <input type="password" id="auth-password" class="form-input" placeholder="Password" style="display: none; text-align: center; font-size: 1.1rem; margin-bottom: 1rem;">
+        <select id="auth-staff-shop" class="form-input" style="display: none; margin-bottom: 1rem;">
+            <option value="Meals">Meals</option>
+            <option value="Snacks">Snacks</option>
+            <option value="Beverages">Beverages</option>
+        </select>
         <input type="password" id="auth-confirm-password" class="form-input" placeholder="Confirm Password" style="display: none; text-align: center; font-size: 1.1rem; margin-bottom: 1.5rem;">
         
         <button id="auth-btn" class="btn-primary" style="width: 100%; margin-bottom: 1rem;">
@@ -109,6 +114,14 @@
                     </div>
 
                     <div class="action-section slide-up" style="animation-delay: 0.4s; margin-top: 2rem;">
+                        <div class="select-wrap" style="max-width: 280px; margin-bottom: 0.9rem;">
+                            <select id="student-shop-selector" class="form-input">
+                                <option value="Meals">Meals</option>
+                                <option value="Snacks">Snacks</option>
+                                <option value="Beverages">Beverages</option>
+                            </select>
+                            <i data-lucide="chevron-down" class="select-arrow"></i>
+                        </div>
                         <div style="display: flex; gap: 0.75rem; flex-wrap: wrap;">
                             <button class="btn-primary" id="join-queue-btn">
                                 <i data-lucide="zap"></i> Join Queue Now
@@ -207,7 +220,7 @@
             <section id="kds" class="page-view" style="display: none;">
                 <div class="kds-page">
                     <div class="kds-header slide-up" style="display: flex; justify-content: space-between; align-items: center;">
-                        <h1>Staff Kitchen Display</h1>
+                        <h2 id="kds-shop-title">Staff Kitchen Display</h2>
                         <button id="staff-logout-btn" style="background: var(--sd-danger); color: #fff; border: none; border-radius: 0.5rem; padding: 0.5rem 1rem; cursor: pointer; font-weight: 600; font-size: 0.9rem; transition: all 0.2s;">
                             <i data-lucide="log-out" style="width:16px;height:16px;vertical-align:middle;margin-right:6px;"></i> Logout
                         </button>

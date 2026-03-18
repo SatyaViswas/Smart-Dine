@@ -19,15 +19,22 @@ DB_URL = os.getenv("DATABASE_URL")
 app = FastAPI()
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
 
-class CheckInReq(BaseModel): uid: str; shop: str
+VALID_SHOPS = {"Meals", "Snacks", "Beverages"}
+
+class CheckInReq(BaseModel): roll_no: str; shop: str
 class PredictReq(BaseModel): shop: str; date_string: str; time_string: str
 class ScanCheckInReq(BaseModel): roll_no: str; shop: str
 
 def get_db_connection():
     return psycopg2.connect(DB_URL)
 
+def validate_shop(shop: str):
+    if shop not in VALID_SHOPS:
+        raise HTTPException(status_code=400, detail="Invalid shop selected.")
+
 @app.get("/api/status")
-def get_status(shop: str = "Meals"):
+def get_status(shop: str):
+    validate_shop(shop)
     conn = get_db_connection()
     c = conn.cursor()
     
@@ -47,15 +54,18 @@ def get_status(shop: str = "Meals"):
 
 @app.post("/api/join")
 def join_queue(req: CheckInReq):
+    validate_shop(req.shop)
     conn = get_db_connection()
     c = conn.cursor()
-    c.execute("INSERT INTO active_queue (uid, shop, time_in) VALUES (%s, %s, %s)", (req.uid, req.shop, time.time()))
+    clean_roll_no = req.roll_no.strip().upper()
+    c.execute("INSERT INTO active_queue (uid, shop, time_in) VALUES (%s, %s, %s)", (clean_roll_no, req.shop, time.time()))
     conn.commit()
     conn.close()
     return {"status": "success"}
 
 @app.post("/api/scan_checkin")
 def scan_checkin(req: ScanCheckInReq):
+    validate_shop(req.shop)
     conn = get_db_connection()
     c = conn.cursor()
 
@@ -80,10 +90,11 @@ def scan_checkin(req: ScanCheckInReq):
     return {"success": True, "message": "Scan check-in successful"}
 
 @app.get("/api/orders")
-def get_orders():
+def get_orders(shop: str):
+    validate_shop(shop)
     conn = get_db_connection()
     c = conn.cursor()
-    c.execute("SELECT id, uid, shop, time_in FROM active_queue ORDER BY time_in ASC")
+    c.execute("SELECT id, uid, shop, time_in FROM active_queue WHERE shop = %s ORDER BY time_in ASC", (shop,))
     orders = [{"id": r[0], "uid": r[1], "shop": r[2], "time_in": r[3]} for r in c.fetchall()]
     conn.close()
     return orders
@@ -167,6 +178,7 @@ def login_student(req: LoginReq):
 class StaffSignupReq(BaseModel):
     email: str
     password: str
+    shop: str
 
 class StaffLoginReq(BaseModel):
     email: str
@@ -177,6 +189,7 @@ def staff_signup(req: StaffSignupReq):
     conn = get_db_connection()
     c = conn.cursor()
     clean_email = req.email.strip().lower()
+    validate_shop(req.shop)
 
     c.execute("SELECT email FROM staff WHERE email = %s", (clean_email,))
     if c.fetchone():
@@ -184,10 +197,10 @@ def staff_signup(req: StaffSignupReq):
         raise HTTPException(status_code=400, detail="Email already registered. Please log in.")
 
     password_hash = hashlib.sha256(req.password.encode()).hexdigest()
-    c.execute("INSERT INTO staff (email, password_hash) VALUES (%s, %s)", (clean_email, password_hash))
+    c.execute("INSERT INTO staff (email, password_hash, shop) VALUES (%s, %s, %s)", (clean_email, password_hash, req.shop))
     conn.commit()
     conn.close()
-    return {"success": True, "email": clean_email}
+    return {"success": True, "email": clean_email, "shop": req.shop}
 
 @app.post("/api/staff/login")
 def staff_login(req: StaffLoginReq):
@@ -195,10 +208,10 @@ def staff_login(req: StaffLoginReq):
     c = conn.cursor()
     clean_email = req.email.strip().lower()
 
-    c.execute("SELECT password_hash FROM staff WHERE email = %s", (clean_email,))
+    c.execute("SELECT shop, password_hash FROM staff WHERE email = %s", (clean_email,))
     row = c.fetchone()
     conn.close()
 
-    if row and row[0] == hashlib.sha256(req.password.encode()).hexdigest():
-        return {"success": True, "email": clean_email}
+    if row and row[1] == hashlib.sha256(req.password.encode()).hexdigest():
+        return {"success": True, "shop": row[0]}
     raise HTTPException(status_code=401, detail="Invalid email or password.")

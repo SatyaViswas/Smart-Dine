@@ -17,10 +17,14 @@ let isStaffMode = false; // Tracks whether the active role is Staff or Student
 const savedRole   = localStorage.getItem('userRole');
 const savedRollNo = localStorage.getItem('userRollNo');
 const savedEmail  = localStorage.getItem('userEmail');
+const savedStaffShop = localStorage.getItem('staffShop');
 
 if (savedRole === 'student' && savedRollNo) {
     completeLogin('student', savedRollNo);
 } else if (savedRole === 'staff' && savedEmail) {
+    if (!savedStaffShop) {
+        localStorage.setItem('staffShop', 'Meals');
+    }
     completeLogin('staff', savedEmail);
 } else {
     appContent.style.display = 'none';
@@ -70,6 +74,7 @@ function updateAuthForm() {
     document.getElementById('auth-roll-no').style.display          = isStaff ? 'none'  : 'block';
     document.getElementById('auth-email').style.display            = isStaff ? 'block' : 'none';
     document.getElementById('auth-password').style.display         = isStaff ? 'block' : 'none';
+    document.getElementById('auth-staff-shop').style.display       = (isStaff && !isLogin) ? 'block' : 'none';
     document.getElementById('auth-confirm-password').style.display = (isStaff && !isLogin) ? 'block' : 'none';
 
     document.getElementById('auth-btn-text').textContent    = isLogin ? 'Access Dashboard' : 'Create Account';
@@ -88,23 +93,32 @@ document.getElementById('auth-btn').addEventListener('click', async () => {
         const email    = document.getElementById('auth-email').value.trim();
         const password = document.getElementById('auth-password').value;
         if (!email || !password) { showAuthError('Email and password are required.'); return; }
+
+        let signupShop = null;
         if (!isLoginMode) {
             const confirmPwd = document.getElementById('auth-confirm-password').value;
             if (password !== confirmPwd) { showAuthError('Passwords do not match.'); return; }
+            signupShop = document.getElementById('auth-staff-shop').value;
         }
+
         btnText.textContent = 'Processing...';
         try {
             const endpoint = isLoginMode ? '/staff/login' : '/staff/signup';
+            const payload = isLoginMode
+                ? { email, password }
+                : { email, password, shop: signupShop };
+
             const res = await fetch(`${BASE_URL}${endpoint}`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ email, password })
+                body: JSON.stringify(payload)
             });
             const data = await res.json();
             if (res.ok) {
                 localStorage.setItem('userRole', 'staff');
-                localStorage.setItem('userEmail', data.email);
-                completeLogin('staff', data.email);
+                localStorage.setItem('userEmail', email);
+                localStorage.setItem('staffShop', data.shop || signupShop || 'Meals');
+                completeLogin('staff', email);
             } else {
                 showAuthError(Array.isArray(data.detail)
                     ? 'Server Error - ' + data.detail.map(e => `${e.loc[1]}: ${e.msg}`).join(', ')
@@ -160,7 +174,8 @@ function completeLogin(role, identifier) {
         document.getElementById('dashboard').style.display = 'none';
         document.getElementById('planner').style.display   = 'none';
         document.getElementById('kds').style.display       = 'block';
-        document.querySelector('.kds-header h1').textContent = 'Welcome, Staff';
+        const assignedShop = localStorage.getItem('staffShop') || 'Meals';
+        document.getElementById('kds-shop-title').innerText = `${assignedShop} KDS`;
     } else {
         navBar.style.display = 'flex';
         document.getElementById('dashboard').style.display = 'block';
@@ -186,7 +201,6 @@ document.getElementById('staff-logout-btn').addEventListener('click', () => {
     }
 });
 let currentShop = 'Meals';
-const SHOPS = ['Meals', 'Snacks', 'Beverages'];
 const statusCache = {};
 let dashboardRequestSeq = 0;
 
@@ -220,6 +234,10 @@ shopTabs.forEach(tab => {
         shopTabs.forEach(t => t.classList.remove('active'));
         e.target.classList.add('active');
         currentShop = e.target.getAttribute('data-shop');
+        const selector = document.getElementById('student-shop-selector');
+        if (selector) {
+            selector.value = currentShop;
+        }
         renderShopChrome(currentShop);
         if (statusCache[currentShop]) {
             renderDashboardData(currentShop, statusCache[currentShop]);
@@ -227,6 +245,19 @@ shopTabs.forEach(tab => {
         updateDashboardUI({ shop: currentShop, silent: true });
     });
 });
+
+const studentShopSelector = document.getElementById('student-shop-selector');
+if (studentShopSelector) {
+    studentShopSelector.value = currentShop;
+    studentShopSelector.addEventListener('change', (e) => {
+        currentShop = e.target.value;
+        shopTabs.forEach((tab) => {
+            tab.classList.toggle('active', tab.getAttribute('data-shop') === currentShop);
+        });
+        renderShopChrome(currentShop);
+        updateDashboardUI({ shop: currentShop, silent: true });
+    });
+}
 
 function renderShopChrome(shop) {
     document.getElementById('seats-card').style.display = shop === 'Meals' ? 'block' : 'none';
@@ -262,49 +293,61 @@ function renderDashboardData(shop, data) {
 
 async function updateDashboardUI({ shop = currentShop, silent = false } = {}) {
     const requestId = ++dashboardRequestSeq;
+    const role = localStorage.getItem('userRole');
+    const studentShop = document.getElementById('student-shop-selector')?.value || shop;
+    const scopedShop = role === 'staff' ? (localStorage.getItem('staffShop') || 'Meals') : studentShop;
 
     try {
-        const data = await fetchJson(`${BASE_URL}/status?shop=${encodeURIComponent(shop)}`);
-        statusCache[shop] = data;
+        const data = await fetchJson(`${BASE_URL}/status?shop=${encodeURIComponent(scopedShop)}`);
+        statusCache[scopedShop] = data;
 
-        if (shop === currentShop && requestId === dashboardRequestSeq) {
-            renderDashboardData(shop, data);
+        if (role === 'student' && scopedShop === currentShop && requestId === dashboardRequestSeq) {
+            renderDashboardData(scopedShop, data);
+        }
+
+        if (role === 'staff') {
+            const avgSpeedSeconds = Number.isFinite(data.avg_speed_seconds) ? Math.max(0, data.avg_speed_seconds) : 0;
+            const avgMinutes = Math.floor(avgSpeedSeconds / 60);
+            const avgSeconds = avgSpeedSeconds % 60;
+            document.getElementById('kds-avg-speed').textContent = `${avgMinutes}m ${avgSeconds}s`;
         }
     } catch (e) {
         console.error("API Offline", e);
-        if (!silent && !statusCache[shop]) {
+        if (!silent && !statusCache[scopedShop]) {
             showToast("Backend is offline. Start FastAPI server.", "error");
         }
     }
 }
 
 async function prefetchDashboardStatuses() {
-    await Promise.all(
-        SHOPS.map(async (shop) => {
-            try {
-                const data = await fetchJson(`${BASE_URL}/status?shop=${encodeURIComponent(shop)}`);
-                statusCache[shop] = data;
-            } catch (e) {
-                console.error(`Failed to prefetch ${shop} status`, e);
-            }
-        })
-    );
-
-    if (statusCache[currentShop]) {
-        renderDashboardData(currentShop, statusCache[currentShop]);
-    }
+    await updateDashboardUI({ shop: currentShop, silent: true });
 }
 
 document.getElementById('join-queue-btn').addEventListener('click', async () => {
-    const uid = localStorage.getItem('userRollNo'); 
+    const rollNo = localStorage.getItem('userRollNo');
+    const selectedShop = document.getElementById('student-shop-selector')?.value || currentShop;
+    if (!rollNo) {
+        showToast("Missing roll number. Please log in again.", "error");
+        return;
+    }
+
     try {
-        await fetchJson(`${BASE_URL}/join`, {
-            method: "POST", headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ uid: uid, shop: currentShop }),
+        const res = await fetch(`${BASE_URL}/join`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ roll_no: rollNo, shop: selectedShop }),
         });
-        showToast(`Successfully joined the ${currentShop} queue!`);
-        updateDashboardUI();
+
+        if (!res.ok) {
+            console.error("Join Queue Error:", await res.text());
+            showToast("Could not join queue. Check backend status.", "error");
+            return;
+        }
+
+        showToast(`Successfully joined the ${selectedShop} queue!`);
+        updateDashboardUI({ shop: selectedShop });
     } catch (e) {
+        console.error("Join Queue Error:", e);
         showToast("Could not join queue. Check backend status.", "error");
     }
 });
@@ -350,7 +393,7 @@ document.getElementById('scan-barcode-btn').addEventListener('click', () => {
                 await fetchJson(`${BASE_URL}/scan_checkin`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ roll_no: rollNo, shop: currentShop })
+                    body: JSON.stringify({ roll_no: rollNo, shop: (document.getElementById('student-shop-selector')?.value || currentShop) })
                 });
                 showToast(`Scan check-in successful for ${rollNo}`);
                 updateDashboardUI();
@@ -421,8 +464,14 @@ function renderChart(mlDataArray) {
 // --- STAFF KDS LOGIC ---
 async function renderOrders() {
     const grid = document.getElementById('kds-grid');
+    const staffShop = localStorage.getItem('staffShop');
+    if (!staffShop) {
+        grid.innerHTML = `<div class="glass-card" style="grid-column: 1/-1; text-align: center; color: var(--sd-text-muted);">No staff shop assigned.</div>`;
+        document.getElementById('active-orders-count').textContent = '0';
+        return;
+    }
     try {
-        const orders = await fetchJson(`${BASE_URL}/orders`);
+        const orders = await fetchJson(`${BASE_URL}/orders?shop=${encodeURIComponent(staffShop)}`);
         document.getElementById('active-orders-count').textContent = orders.length;
         
         if (orders.length === 0) {
@@ -587,13 +636,16 @@ renderOrders();
 
 // Silently fetch new data from the database every 5 seconds!
 setInterval(() => {
-    // Only update the dashboard if the user is currently looking at it
-    if (document.getElementById('dashboard').style.display !== 'none') {
-        prefetchDashboardStatuses();
-        updateDashboardUI({ shop: currentShop, silent: true });
+    const role = localStorage.getItem('userRole');
+    if (role === 'student') {
+        const selectedShop = document.getElementById('student-shop-selector')?.value || currentShop;
+        updateDashboardUI({ shop: selectedShop, silent: true });
     }
-    // Only update the kitchen screen if the staff is looking at it
-    if (document.getElementById('kds').style.display !== 'none') {
-        renderOrders();
+    if (role === 'staff') {
+        const staffShop = localStorage.getItem('staffShop') || 'Meals';
+        updateDashboardUI({ shop: staffShop, silent: true });
+        if (document.getElementById('kds').style.display !== 'none') {
+            renderOrders();
+        }
     }
 }, 5000);
