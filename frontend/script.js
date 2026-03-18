@@ -3,7 +3,7 @@ lucide.createIcons();
 
 // --- STATE MANAGEMENT ---
 const API_HOST = window.location.hostname || '127.0.0.1';
-const BASE_URL = `http://127.0.0.1:8000/api`;
+const BASE_URL = `https://sweet-kiwis-cross.loca.lt/api`;
 
 // --- AUTHENTICATION LOGIC (LOGIN & SIGNUP) ---
 const authScreen = document.getElementById('auth-screen');
@@ -384,7 +384,14 @@ document.getElementById('scan-barcode-btn').addEventListener('click', () => {
 
     qrScanner = new Html5QrcodeScanner(
         'reader',
-        { fps: 10, qrbox: { width: 250, height: 100 } },
+        {
+            fps: 30,
+            qrbox: { width: 300, height: 100 },
+            formatsToSupport: [
+                Html5QrcodeSupportedFormats.CODE_128,
+                Html5QrcodeSupportedFormats.CODE_39
+            ]
+        },
         false
     );
 
