@@ -323,6 +323,18 @@ async function prefetchDashboardStatuses() {
     await updateDashboardUI({ shop: currentShop, silent: true });
 }
 
+function optimisticIncrementQueue() {
+    const queueEl = document.getElementById('student-queue-length') || document.getElementById('queue-val');
+    if (!queueEl) {
+        return;
+    }
+
+    const currentQueue = parseInt(queueEl.innerText, 10);
+    if (!Number.isNaN(currentQueue)) {
+        queueEl.innerText = String(currentQueue + 1);
+    }
+}
+
 document.getElementById('join-queue-btn').addEventListener('click', async () => {
     const rollNo = localStorage.getItem('userRollNo');
     const selectedShop = document.getElementById('student-shop-selector')?.value || currentShop;
@@ -332,6 +344,8 @@ document.getElementById('join-queue-btn').addEventListener('click', async () => 
     }
 
     try {
+        optimisticIncrementQueue();
+
         const res = await fetch(`${BASE_URL}/join`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
@@ -345,10 +359,11 @@ document.getElementById('join-queue-btn').addEventListener('click', async () => 
         }
 
         showToast(`Successfully joined the ${selectedShop} queue!`);
-        updateDashboardUI({ shop: selectedShop });
+        await updateDashboardUI({ shop: selectedShop });
     } catch (e) {
         console.error("Join Queue Error:", e);
         showToast("Could not join queue. Check backend status.", "error");
+        await updateDashboardUI({ shop: selectedShop, silent: true });
     }
 });
 
@@ -390,15 +405,28 @@ document.getElementById('scan-barcode-btn').addEventListener('click', () => {
             readerEl.style.display = 'none';
 
             try {
-                await fetchJson(`${BASE_URL}/scan_checkin`, {
+                optimisticIncrementQueue();
+
+                const selectedShop = document.getElementById('student-shop-selector')?.value || currentShop;
+                const res = await fetch(`${BASE_URL}/scan_checkin`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ roll_no: rollNo, shop: (document.getElementById('student-shop-selector')?.value || currentShop) })
+                    body: JSON.stringify({ roll_no: rollNo, shop: selectedShop })
                 });
+
+                if (!res.ok) {
+                    console.error("Scan Check-in Error:", await res.text());
+                    showToast('Scan check-in failed. Please try again.', 'error');
+                    await updateDashboardUI({ shop: selectedShop, silent: true });
+                    return;
+                }
+
                 showToast(`Scan check-in successful for ${rollNo}`);
-                updateDashboardUI();
+                await updateDashboardUI({ shop: selectedShop });
             } catch (e) {
+                console.error("Scan Check-in Error:", e);
                 showToast('Scan check-in failed. Please try again.', 'error');
+                await updateDashboardUI({ shop: (document.getElementById('student-shop-selector')?.value || currentShop), silent: true });
             }
         },
         () => {}
