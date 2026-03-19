@@ -1,11 +1,13 @@
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 import psycopg2
 from psycopg2.pool import SimpleConnectionPool
 import hashlib
 import time
-from datetime import datetime
+from datetime import datetime, timedelta
+import random
 from ml_model import predict_future_wait
 import os
 from dotenv import load_dotenv
@@ -53,8 +55,9 @@ def get_status(shop: str):
         recent = c.fetchall()
         avg_speed = sum([t[0] for t in recent]) / len(recent) if recent else 60.0
 
-        c.execute("SELECT COUNT(*) FROM active_queue WHERE shop='Meals'")
-        available_seats = max(0, 120 - c.fetchone()[0])
+        c.execute("SELECT COUNT(*) FROM history_log WHERE occupies_seat = TRUE AND seat_release_time > NOW()")
+        occupied_seats = c.fetchone()[0]
+        available_seats = max(0, 120 - occupied_seats)
 
         traffic = "High" if queue >= 15 else "Medium" if queue >= 7 else "Low"
         return {"queue": queue, "wait": round((queue * avg_speed) / 60), "seats": available_seats, "traffic": traffic, "avg_speed_seconds": int(avg_speed)}
@@ -69,13 +72,46 @@ def join_queue(req: CheckInReq):
         conn = get_db_connection()
         c = conn.cursor()
         clean_roll_no = req.roll_no.strip().upper()
-        c.execute("INSERT INTO active_queue (uid, shop, time_in) VALUES (%s, %s, %s)", (clean_roll_no, req.shop, time.time()))
+
+        c.execute("SELECT COUNT(*) FROM active_queue WHERE roll_no = %s AND shop = %s", (clean_roll_no, req.shop))
+        existing_count = c.fetchone()[0]
+        if existing_count > 0:
+            return JSONResponse(
+                status_code=400,
+                content={"error": "You already have an active order in this section. Please wait until it is served."}
+            )
+
+        c.execute(
+            "INSERT INTO active_queue (uid, roll_no, shop, time_in) VALUES (%s, %s, %s, %s)",
+            (clean_roll_no, clean_roll_no, req.shop, time.time())
+        )
         conn.commit()
         return {"status": "success"}
     except Exception:
         if conn:
             conn.rollback()
         raise HTTPException(status_code=500, detail="Failed to join queue")
+    finally:
+        release_db_connection(conn)
+
+@app.get("/api/my_orders")
+def get_my_orders(roll_no: str):
+    conn = None
+    try:
+        conn = get_db_connection()
+        c = conn.cursor()
+        clean_roll_no = roll_no.strip().upper()
+
+        c.execute("SELECT shop, time_in FROM active_queue WHERE roll_no = %s ORDER BY time_in DESC", (clean_roll_no,))
+        active = [{"shop": r[0], "time_in": r[1]} for r in c.fetchall()]
+
+        c.execute(
+            "SELECT shop, timestamp FROM history_log WHERE roll_no = %s ORDER BY id DESC LIMIT 5",
+            (clean_roll_no,)
+        )
+        completed = [{"shop": r[0], "timestamp": r[1]} for r in c.fetchall()]
+
+        return {"active": active, "completed": completed}
     finally:
         release_db_connection(conn)
 
@@ -94,8 +130,8 @@ def scan_checkin(req: ScanCheckInReq):
             c.execute("INSERT INTO students (roll_no) VALUES (%s)", (clean_roll_no,))
 
         c.execute(
-            "INSERT INTO active_queue (uid, shop, time_in) VALUES (%s, %s, %s)",
-            (clean_roll_no, req.shop, time.time())
+            "INSERT INTO active_queue (uid, roll_no, shop, time_in) VALUES (%s, %s, %s, %s)",
+            (clean_roll_no, clean_roll_no, req.shop, time.time())
         )
         conn.commit()
     except Exception:
@@ -127,18 +163,33 @@ def serve_order(order_id: int):
         conn = get_db_connection()
         c = conn.cursor()
 
-        c.execute("SELECT uid, shop, time_in FROM active_queue WHERE id=%s", (order_id,))
+        c.execute("SELECT COALESCE(roll_no, uid), shop, time_in FROM active_queue WHERE id=%s", (order_id,))
         order = c.fetchone()
         if order:
             duration = time.time() - order[2]
             now = datetime.now()
             current_minute = now.minute
+            roll_no = order[0]
+            shop = order[1]
 
-            c.execute("SELECT COUNT(*) FROM active_queue WHERE shop=%s", (order[1],))
+            occupies_seat = False
+            seat_release_time = datetime.now()
+
+            if shop == "Meals":
+                occupies_seat = True
+                seat_release_time = datetime.now() + timedelta(minutes=random.randint(20, 25))
+            elif shop in ["Snacks", "Beverages"]:
+                if random.random() < 0.10:
+                    occupies_seat = True
+                    seat_release_time = datetime.now() + timedelta(minutes=random.randint(10, 15))
+
+            c.execute("SELECT COUNT(*) FROM active_queue WHERE shop=%s", (shop,))
             queue = c.fetchone()[0]
 
-            c.execute("INSERT INTO history_log (uid, shop, day_of_week, hour_of_day, minute, queue_length, service_duration) VALUES (%s, %s, %s, %s, %s, %s, %s)",
-                      (order[0], order[1], now.weekday(), now.hour, current_minute, queue, duration))
+            c.execute(
+                "INSERT INTO history_log (roll_no, shop, day_of_week, hour_of_day, minute, queue_length, service_duration, occupies_seat, seat_release_time, timestamp) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)",
+                (roll_no, shop, now.weekday(), now.hour, current_minute, queue, duration, occupies_seat, seat_release_time, now)
+            )
             c.execute("DELETE FROM active_queue WHERE id=%s", (order_id,))
             conn.commit()
 

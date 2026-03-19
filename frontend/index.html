@@ -106,6 +106,18 @@
                         </div>
                     </div>
 
+                    <div id="my-orders-section" class="card" style="margin-top: 20px;">
+                        <h3 style="margin-bottom: 15px; border-bottom: 1px solid #eee; padding-bottom: 10px;">My Orders</h3>
+                        <div style="margin-bottom: 15px;">
+                            <h4 style="font-size: 0.9rem; color: #666; margin-bottom: 8px;">PREPARING NOW</h4>
+                            <ul id="active-orders-list" class="order-list"></ul>
+                        </div>
+                        <div>
+                            <h4 style="font-size: 0.9rem; color: #666; margin-bottom: 8px;">RECENTLY SERVED</h4>
+                            <ul id="completed-orders-list" class="order-list"></ul>
+                        </div>
+                    </div>
+
                     <div class="status-row slide-up" style="animation-delay: 0.3s;">
                         <span class="status-label">Campus Traffic Status</span>
                         <span class="badge-glow warning" id="traffic-badge">
@@ -115,7 +127,7 @@
 
                     <div class="action-section slide-up" style="animation-delay: 0.4s; margin-top: 2rem;">
                         <div style="display: flex; gap: 0.75rem; flex-wrap: wrap;">
-                            <button class="btn-primary" id="join-queue-btn">
+                            <button class="btn-primary" id="join-btn">
                                 <i data-lucide="zap"></i> Join Queue Now
                             </button>
                             <button id="scan-barcode-btn" style="background: transparent; color: var(--sd-text-primary); border: 1px solid var(--sd-border); border-radius: var(--sd-radius); padding: 0.85rem 1rem; font-weight: 600; cursor: pointer;">

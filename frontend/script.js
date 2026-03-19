@@ -3,7 +3,7 @@ lucide.createIcons();
 
 // --- STATE MANAGEMENT ---
 const API_HOST = window.location.hostname || '127.0.0.1';
-const BASE_URL = `https://automotive-tue-diamonds-throw.trycloudflare.com/api`;
+const BASE_URL = `https://coins-endless-experts-passive.trycloudflare.com/api`;
 
 // --- AUTHENTICATION LOGIC (LOGIN & SIGNUP) ---
 const authScreen = document.getElementById('auth-screen');
@@ -203,6 +203,35 @@ document.getElementById('staff-logout-btn').addEventListener('click', () => {
 let currentShop = 'Meals';
 const statusCache = {};
 let dashboardRequestSeq = 0;
+let myActiveShops = new Set();
+
+function updateButtonStates() {
+    const selectedShop = document.getElementById('student-shop-selector')?.value || currentShop;
+    const joinBtn = document.getElementById('join-btn') || document.getElementById('join-queue-btn');
+    const scanBtn = document.getElementById('scan-barcode-btn');
+
+    if (!joinBtn) {
+        return;
+    }
+
+    if (myActiveShops.has(selectedShop)) {
+        joinBtn.disabled = true;
+        joinBtn.innerText = `Already in ${selectedShop} Queue`;
+        joinBtn.classList.add('btn-disabled');
+        if (scanBtn) {
+            scanBtn.disabled = true;
+            scanBtn.classList.add('btn-disabled');
+        }
+    } else {
+        joinBtn.disabled = false;
+        joinBtn.innerText = "Join Queue";
+        joinBtn.classList.remove('btn-disabled');
+        if (scanBtn) {
+            scanBtn.disabled = false;
+            scanBtn.classList.remove('btn-disabled');
+        }
+    }
+}
 
 function formatWaitTime(totalSeconds) {
     if (!totalSeconds || isNaN(totalSeconds)) return "0s";
@@ -274,7 +303,10 @@ if (studentShopSelector) {
         });
         renderShopChrome(currentShop);
         updateDashboardUI({ shop: currentShop, silent: true });
+        updateButtonStates();
     });
+
+    studentShopSelector.addEventListener('change', updateButtonStates);
 }
 
 function renderShopChrome(shop) {
@@ -324,6 +356,7 @@ async function updateDashboardUI({ shop = currentShop, silent = false } = {}) {
 
         if (role === 'student' && scopedShop === currentShop && requestId === dashboardRequestSeq) {
             renderDashboardData(scopedShop, data);
+            await fetchMyOrders();
         }
 
         if (role === 'staff') {
@@ -335,6 +368,52 @@ async function updateDashboardUI({ shop = currentShop, silent = false } = {}) {
         if (!silent && !statusCache[scopedShop]) {
             showToast("Backend is offline. Start FastAPI server.", "error");
         }
+    }
+}
+
+async function fetchMyOrders() {
+    const rollNo = localStorage.getItem('userRollNo');
+    if (!rollNo) {
+        return;
+    }
+
+    const activeList = document.getElementById('active-orders-list');
+    const completedList = document.getElementById('completed-orders-list');
+    if (!activeList || !completedList) {
+        return;
+    }
+
+    try {
+        const data = await fetchJson(`${BASE_URL}/my_orders?roll_no=${encodeURIComponent(rollNo)}`);
+
+        const activeItems = Array.isArray(data.active) ? data.active : [];
+        const completedItems = Array.isArray(data.completed) ? data.completed : [];
+        myActiveShops.clear();
+
+        activeList.innerHTML = activeItems.length
+            ? activeItems.map((order) => {
+                myActiveShops.add(order.shop);
+                return `<li class="order-item preparing">
+                            <span style="font-weight: bold;">${order.shop}</span>
+                            <span class="badge preparing">Preparing</span>
+                        </li>`;
+            }).join('')
+            : '<li style="color: #999; font-size: 0.9rem;">No active orders.</li>';
+
+        completedList.innerHTML = completedItems.length
+            ? completedItems.map((order) => {
+                return `<li class="order-item served">
+                            <span style="font-weight: bold;">${order.shop}</span>
+                            <span class="badge served">Served</span>
+                        </li>`;
+            }).join('')
+            : '<li style="color: #999; font-size: 0.9rem;">No recently served orders.</li>';
+
+        updateButtonStates();
+    } catch (e) {
+        myActiveShops.clear();
+        updateButtonStates();
+        console.error('My Orders API error:', e);
     }
 }
 
@@ -354,7 +433,7 @@ function optimisticIncrementQueue() {
     }
 }
 
-document.getElementById('join-queue-btn').addEventListener('click', async () => {
+document.getElementById('join-btn').addEventListener('click', async () => {
     const rollNo = localStorage.getItem('userRollNo');
     const selectedShop = document.getElementById('student-shop-selector')?.value || currentShop;
     if (!rollNo) {
@@ -372,7 +451,11 @@ document.getElementById('join-queue-btn').addEventListener('click', async () => 
         });
 
         if (!res.ok) {
-            console.error("Join Queue Error:", await res.text());
+            const data = await res.json().catch(() => ({}));
+            if (data.error) {
+                alert(data.error);
+            }
+            console.error("Join Queue Error:", data);
             showToast("Could not join queue. Check backend status.", "error");
             return;
         }
@@ -713,6 +796,7 @@ renderShopChrome(currentShop);
 prefetchDashboardStatuses();
 updateDashboardUI({ shop: currentShop, silent: true });
 renderOrders();
+updateButtonStates();
 
 // Silently fetch new data from the database every 5 seconds!
 setInterval(() => {

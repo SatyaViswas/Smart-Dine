@@ -2,6 +2,7 @@ import psycopg2
 import random
 import math
 import os
+from datetime import datetime
 from dotenv import load_dotenv
 
 # Load the secrets from the .env file into Python's memory
@@ -18,13 +19,23 @@ def initialize_cloud_database():
     
     # 1. Create Tables (Notice 'SERIAL' instead of 'AUTOINCREMENT' for Postgres)
     c.execute('''CREATE TABLE IF NOT EXISTS active_queue 
-                 (id SERIAL PRIMARY KEY, uid TEXT, shop TEXT, time_in REAL)''')
+                 (id SERIAL PRIMARY KEY, uid TEXT, roll_no TEXT, shop TEXT, time_in REAL)''')
+    c.execute('''ALTER TABLE active_queue ADD COLUMN IF NOT EXISTS roll_no TEXT''')
+    c.execute('''UPDATE active_queue SET roll_no = uid WHERE roll_no IS NULL AND uid IS NOT NULL''')
                   
     c.execute('''CREATE TABLE IF NOT EXISTS history_log 
-                 (id SERIAL PRIMARY KEY, uid TEXT, shop TEXT, day_of_week INTEGER, hour_of_day INTEGER, minute INTEGER, queue_length INTEGER, service_duration REAL)''')
+                 (id SERIAL PRIMARY KEY, roll_no TEXT, shop TEXT, day_of_week INTEGER, hour_of_day INTEGER, minute INTEGER, queue_length INTEGER, service_duration REAL, occupies_seat BOOLEAN, seat_release_time TIMESTAMP)''')
 
     # Ensure existing deployments also have minute-level granularity support
     c.execute('''ALTER TABLE history_log ADD COLUMN IF NOT EXISTS minute INTEGER''')
+    c.execute('''ALTER TABLE history_log ADD COLUMN IF NOT EXISTS roll_no TEXT''')
+    c.execute('''ALTER TABLE history_log ADD COLUMN IF NOT EXISTS occupies_seat BOOLEAN DEFAULT FALSE''')
+    c.execute('''ALTER TABLE history_log ADD COLUMN IF NOT EXISTS seat_release_time TIMESTAMP DEFAULT '2000-01-01 00:00:00' ''')
+    c.execute('''ALTER TABLE history_log ADD COLUMN IF NOT EXISTS timestamp TIMESTAMP DEFAULT NOW()''')
+    #c.execute('''UPDATE history_log SET roll_no = uid WHERE roll_no IS NULL AND uid IS NOT NULL''')
+    c.execute('''UPDATE history_log SET occupies_seat = FALSE WHERE occupies_seat IS NULL''')
+    c.execute('''UPDATE history_log SET seat_release_time = '2000-01-01 00:00:00' WHERE seat_release_time IS NULL''')
+    c.execute('''UPDATE history_log SET timestamp = NOW() WHERE timestamp IS NULL''')
     # Add this right below where you create the active_queue and history_log tables
 
     # 1. Create the Students Table
@@ -87,9 +98,9 @@ def initialize_cloud_database():
             # Apply the day multiplier and ensure queue doesn't drop below 0
             queue_len = max(0, int(round(queue_len * day_multipliers[day])))
 
-            c.execute('''INSERT INTO history_log (uid, shop, day_of_week, hour_of_day, minute, queue_length, service_duration)
-                         VALUES (%s, %s, %s, %s, %s, %s, %s)''',
-                      (f"UID_{random.randint(1000,9999)}", shop, day, hour, minute, queue_len, service_duration))
+            c.execute('''INSERT INTO history_log (roll_no, shop, day_of_week, hour_of_day, minute, queue_length, service_duration, occupies_seat, seat_release_time)
+                         VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)''',
+                      (f"24B81A{random.randint(1000,9999)}", shop, day, hour, minute, queue_len, service_duration, False, datetime(2000, 1, 1, 0, 0, 0)))
 
             if i % 100 == 0 and i > 0:
                 print(f"Pushed {i} rows...")
