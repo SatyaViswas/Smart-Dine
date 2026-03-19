@@ -3,7 +3,7 @@ lucide.createIcons();
 
 // --- STATE MANAGEMENT ---
 const API_HOST = window.location.hostname || '127.0.0.1';
-const BASE_URL = `https://coins-endless-experts-passive.trycloudflare.com/api`;
+const BASE_URL = `https://angel-devel-reasonable-increasing.trycloudflare.com/api`;
 
 // --- AUTHENTICATION LOGIC (LOGIN & SIGNUP) ---
 const authScreen = document.getElementById('auth-screen');
@@ -371,6 +371,12 @@ async function updateDashboardUI({ shop = currentShop, silent = false } = {}) {
     }
 }
 
+function formatServedTime(timestamp) {
+    if (!timestamp) return '';
+    const date = new Date(timestamp);
+    return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+}
+
 async function fetchMyOrders() {
     const rollNo = localStorage.getItem('userRollNo');
     if (!rollNo) {
@@ -387,7 +393,7 @@ async function fetchMyOrders() {
         const data = await fetchJson(`${BASE_URL}/my_orders?roll_no=${encodeURIComponent(rollNo)}`);
 
         const activeItems = Array.isArray(data.active) ? data.active : [];
-        const completedItems = Array.isArray(data.completed) ? data.completed : [];
+        let completedItems = Array.isArray(data.completed) ? data.completed : [];
         myActiveShops.clear();
 
         activeList.innerHTML = activeItems.length
@@ -400,10 +406,21 @@ async function fetchMyOrders() {
             }).join('')
             : '<li style="color: #999; font-size: 0.9rem;">No active orders.</li>';
 
+        // Sort completed items by timestamp (newest first)
+        completedItems.sort((a, b) => {
+            const timeA = new Date(a.timestamp).getTime();
+            const timeB = new Date(b.timestamp).getTime();
+            return timeB - timeA;
+        });
+
         completedList.innerHTML = completedItems.length
             ? completedItems.map((order) => {
+                const servedTime = formatServedTime(order.timestamp);
                 return `<li class="order-item served">
-                            <span style="font-weight: bold;">${order.shop}</span>
+                            <div style="flex-grow: 1;">
+                                <div style="font-weight: bold;">${order.shop}</div>
+                                <div style="font-size: 0.75rem; color: #999; margin-top: 2px;">Served at ${servedTime}</div>
+                            </div>
                             <span class="badge served">Served</span>
                         </li>`;
             }).join('')
@@ -470,6 +487,31 @@ document.getElementById('join-btn').addEventListener('click', async () => {
 });
 
 let qrScanner = null;
+
+function extractRollNoFromScan(decodedText) {
+    const raw = (decodedText || '').trim();
+    if (!raw) {
+        return '';
+    }
+
+    // Accept plain roll numbers and payloads like "Roll No: 24B81A67R1".
+    const normalized = raw.toUpperCase();
+    const likelyRoll = normalized.match(/\b[A-Z0-9]{8,20}\b/g) || [];
+
+    // Prefer tokens that contain both letters and digits.
+    const mixedToken = likelyRoll.find((token) => /[A-Z]/.test(token) && /\d/.test(token));
+    if (mixedToken) {
+        return mixedToken;
+    }
+
+    // Fallback to first long alphanumeric token.
+    if (likelyRoll.length > 0) {
+        return likelyRoll[0];
+    }
+
+    return '';
+}
+
 document.getElementById('scan-barcode-btn').addEventListener('click', () => {
     const readerEl = document.getElementById('reader');
     readerEl.style.display = 'block';
@@ -484,24 +526,28 @@ document.getElementById('scan-barcode-btn').addEventListener('click', () => {
         return;
     }
 
-    qrScanner = new Html5QrcodeScanner(
-        'reader',
-        {
-            fps: 30,
-            qrbox: { width: 300, height: 100 },
-            formatsToSupport: [
-                Html5QrcodeSupportedFormats.CODE_128,
-                Html5QrcodeSupportedFormats.CODE_39
-            ]
-        },
-        false
-    );
+    const scannerConfig = {
+        fps: 20,
+        qrbox: { width: 320, height: 140 }
+    };
+
+    if (window.Html5QrcodeSupportedFormats) {
+        scannerConfig.formatsToSupport = [
+            Html5QrcodeSupportedFormats.CODE_128,
+            Html5QrcodeSupportedFormats.CODE_39,
+            Html5QrcodeSupportedFormats.CODE_93,
+            Html5QrcodeSupportedFormats.EAN_13,
+            Html5QrcodeSupportedFormats.QR_CODE
+        ];
+    }
+
+    qrScanner = new Html5QrcodeScanner('reader', scannerConfig, false);
 
     qrScanner.render(
         async (decodedText) => {
-            const rollNo = (decodedText || '').trim();
+            const rollNo = extractRollNoFromScan(decodedText);
             if (!rollNo) {
-                showToast('Scanned code is empty.', 'error');
+                showToast('Could not read roll number from barcode.', 'error');
                 return;
             }
 
@@ -524,8 +570,9 @@ document.getElementById('scan-barcode-btn').addEventListener('click', () => {
                 });
 
                 if (!res.ok) {
-                    console.error("Scan Check-in Error:", await res.text());
-                    showToast('Scan check-in failed. Please try again.', 'error');
+                    const data = await res.json().catch(() => ({}));
+                    console.error("Scan Check-in Error:", data);
+                    showToast(data.error || 'Scan check-in failed. Please try again.', 'error');
                     await updateDashboardUI({ shop: selectedShop, silent: true });
                     return;
                 }

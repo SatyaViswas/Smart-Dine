@@ -121,13 +121,26 @@ def scan_checkin(req: ScanCheckInReq):
     conn = None
 
     clean_roll_no = req.roll_no.strip().upper()
+    if not clean_roll_no:
+        raise HTTPException(status_code=400, detail="Invalid roll number in barcode")
 
     try:
         conn = get_db_connection()
         c = conn.cursor()
+
+        # Auto-register student if this roll number does not exist yet.
         c.execute("SELECT 1 FROM students WHERE roll_no = %s", (clean_roll_no,))
         if not c.fetchone():
             c.execute("INSERT INTO students (roll_no) VALUES (%s)", (clean_roll_no,))
+
+        # Avoid duplicate active orders for the same student and shop.
+        c.execute("SELECT COUNT(*) FROM active_queue WHERE roll_no = %s AND shop = %s", (clean_roll_no, req.shop))
+        existing_count = c.fetchone()[0]
+        if existing_count > 0:
+            return JSONResponse(
+                status_code=400,
+                content={"error": "This roll number already has an active order in this section."}
+            )
 
         c.execute(
             "INSERT INTO active_queue (uid, roll_no, shop, time_in) VALUES (%s, %s, %s, %s)",

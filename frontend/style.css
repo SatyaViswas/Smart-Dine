@@ -107,7 +107,11 @@ body {
 
 .status-row { display: flex; align-items: center; justify-content: space-between; padding: 1rem 1.5rem; background: white; border-radius: var(--sd-radius-sm); font-weight: 500; }
 .badge-glow { padding: 0.35rem 0.8rem; border-radius: var(--sd-radius-pill); font-size: 0.8rem; display: inline-flex; align-items: center; gap: 0.3rem; font-weight: 600; }
+.badge-glow.success { background: rgba(16, 185, 129, 0.15); color: var(--sd-success); }
 .badge-glow.warning { background: rgba(245, 158, 11, 0.15); color: var(--sd-warning); }
+.badge-glow.danger { background: rgba(239, 68, 68, 0.15); color: var(--sd-danger); }
+
+#my-orders-section { margin-bottom: 1rem; }
 
 /* Forms & KDS */
 .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
