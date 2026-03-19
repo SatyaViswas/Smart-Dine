@@ -49,7 +49,7 @@ def get_status(shop: str):
         c.execute("SELECT COUNT(*) FROM active_queue WHERE shop=%s", (shop,))
         queue = c.fetchone()[0]
 
-        c.execute("SELECT service_duration FROM history_log WHERE shop=%s ORDER BY id DESC LIMIT 5", (shop,))
+        c.execute("SELECT service_duration FROM history_log WHERE shop=%s ORDER BY id DESC LIMIT 10", (shop,))
         recent = c.fetchall()
         avg_speed = sum([t[0] for t in recent]) / len(recent) if recent else 60.0
 

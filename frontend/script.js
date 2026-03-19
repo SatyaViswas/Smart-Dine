@@ -3,7 +3,7 @@ lucide.createIcons();
 
 // --- STATE MANAGEMENT ---
 const API_HOST = window.location.hostname || '127.0.0.1';
-const BASE_URL = `https://spencer-worker-sampling-upc.trycloudflare.com/api`;
+const BASE_URL = `https://automotive-tue-diamonds-throw.trycloudflare.com/api`;
 
 // --- AUTHENTICATION LOGIC (LOGIN & SIGNUP) ---
 const authScreen = document.getElementById('auth-screen');
@@ -204,6 +204,24 @@ let currentShop = 'Meals';
 const statusCache = {};
 let dashboardRequestSeq = 0;
 
+function formatWaitTime(totalSeconds) {
+    if (!totalSeconds || isNaN(totalSeconds)) return "0s";
+    totalSeconds = Math.round(totalSeconds);
+    
+    if (totalSeconds < 60) {
+        return `${totalSeconds}s`;
+    } else if (totalSeconds < 3600) {
+        const minutes = Math.floor(totalSeconds / 60);
+        const seconds = totalSeconds % 60;
+        return seconds > 0 ? `${minutes}m ${seconds}s` : `${minutes}m`;
+    } else {
+        const hours = Math.floor(totalSeconds / 3600);
+        const remainingSeconds = totalSeconds % 3600;
+        const minutes = Math.floor(remainingSeconds / 60);
+        return minutes > 0 ? `${hours}h ${minutes}m` : `${hours}h`;
+    }
+}
+
 async function fetchJson(url, options = {}) {
     const res = await fetch(url, options);
     if (!res.ok) {
@@ -265,12 +283,15 @@ function renderShopChrome(shop) {
 
 function renderDashboardData(shop, data) {
     const avgSpeedSeconds = Number.isFinite(data.avg_speed_seconds) ? Math.max(0, data.avg_speed_seconds) : 0;
-    const avgMinutes = Math.floor(avgSpeedSeconds / 60);
-    const avgSeconds = avgSpeedSeconds % 60;
-    const formattedAvgSpeed = `${avgMinutes}m ${avgSeconds}s`;
+    const formattedAvgSpeed = formatWaitTime(avgSpeedSeconds);
+    const rawWaitSeconds = Number.isFinite(data.queue) ? Math.max(0, data.queue) * avgSpeedSeconds : 0;
 
     document.getElementById('queue-val').textContent = data.queue;
-    document.getElementById('wait-val').textContent = data.wait;
+    const waitValueEl = document.getElementById('wait-val');
+    waitValueEl.textContent = formatWaitTime(rawWaitSeconds);
+    if (waitValueEl.nextElementSibling) {
+        waitValueEl.nextElementSibling.textContent = '';
+    }
     document.getElementById('kds-avg-speed').textContent = formattedAvgSpeed;
 
     const seatsCard = document.getElementById('seats-card');
@@ -307,9 +328,7 @@ async function updateDashboardUI({ shop = currentShop, silent = false } = {}) {
 
         if (role === 'staff') {
             const avgSpeedSeconds = Number.isFinite(data.avg_speed_seconds) ? Math.max(0, data.avg_speed_seconds) : 0;
-            const avgMinutes = Math.floor(avgSpeedSeconds / 60);
-            const avgSeconds = avgSpeedSeconds % 60;
-            document.getElementById('kds-avg-speed').textContent = `${avgMinutes}m ${avgSeconds}s`;
+            document.getElementById('kds-avg-speed').textContent = formatWaitTime(avgSpeedSeconds);
         }
     } catch (e) {
         console.error("API Offline", e);
@@ -461,13 +480,24 @@ document.getElementById('predict-btn').addEventListener('click', async () => {
             body: JSON.stringify({ shop: shop, date_string: date, time_string: time })
         });
         const data = await res.json();
+
+        const predictedWaitSeconds = Number.isFinite(data.predicted_wait_mins)
+            ? Math.max(0, data.predicted_wait_mins * 60)
+            : 0;
+        const predictedQueue = Number.isFinite(data.predicted_queue) ? Math.max(0, data.predicted_queue) : 0;
+        const perOrderSeconds = predictedQueue > 0 ? predictedWaitSeconds / predictedQueue : 0;
+        const waitGraphSeconds = Array.isArray(data.hourly_graph)
+            ? data.hourly_graph.map((value) => {
+                if (!Number.isFinite(value)) return 0;
+                return Math.max(0, value) * perOrderSeconds;
+            })
+            : [];
         
         document.getElementById('prediction-result').style.display = 'block';
-        document.getElementById('pred-wait-val').textContent = data.predicted_wait_mins;
-        document.getElementById('pred-queue-val').textContent = data.predicted_queue;
+        document.getElementById('pred-wait-val').textContent = formatWaitTime(predictedWaitSeconds);
+        document.getElementById('pred-queue-val').textContent = predictedQueue;
         
-        // Pass minute-level graph data and labels from backend
-        renderChart(data.hourly_graph, data.graph_labels);
+        renderChart(waitGraphSeconds, data.graph_labels);
     } catch (e) { showToast("Prediction failed", "error"); }
     
     btn.innerHTML = `<i data-lucide="search"></i> Predict Wait Time`; lucide.createIcons();
@@ -490,12 +520,24 @@ function renderChart(mlDataArray, graphLabels) {
         data: { 
             labels: safeGraphLabels,
             datasets: [{ 
-                label: 'Predicted Queue Length', 
+                label: 'Predicted Wait Time', 
                 data: safeMlDataArray,
                 borderColor: '#7c3aed', backgroundColor: gradient, borderWidth: 2.5, fill: true, tension: 0.4 
             }] 
         },
-        options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { x: { grid: { display: false } }, y: { display: false, beginAtZero: true, max: yAxisMax } } }
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { display: false },
+                tooltip: {
+                    callbacks: {
+                        label: (context) => ` ${formatWaitTime(context.parsed.y)}`
+                    }
+                }
+            },
+            scales: { x: { grid: { display: false } }, y: { display: false, beginAtZero: true, max: yAxisMax } }
+        }
     });
 }
 
