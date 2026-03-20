@@ -204,6 +204,10 @@ let currentShop = 'Meals';
 const statusCache = {};
 let dashboardRequestSeq = 0;
 let myActiveShops = new Set();
+const orderShops = ['Meals', 'Snacks', 'Beverages'];
+const servedNoticeExpiryByShop = { Meals: 0, Snacks: 0, Beverages: 0 };
+const seenCompletedOrderKeys = new Set();
+let completedBootstrapDone = false;
 
 function updateButtonStates() {
     const selectedShop = document.getElementById('student-shop-selector')?.value || currentShop;
@@ -270,6 +274,7 @@ navLinks.forEach(link => {
         pages.forEach(page => page.style.display = page.id === targetId ? 'block' : 'none');
         // Refresh data when switching tabs
         if (targetId === 'dashboard') updateDashboardUI();
+        if (targetId === 'orders') fetchMyOrders();
         if (targetId === 'kds') renderOrders();
     });
 });
@@ -310,7 +315,7 @@ if (studentShopSelector) {
 }
 
 function renderShopChrome(shop) {
-    document.getElementById('seats-card').style.display = shop === 'Meals' ? 'block' : 'none';
+    document.getElementById('seats-card').style.display = 'block';
 }
 
 function renderDashboardData(shop, data) {
@@ -327,16 +332,12 @@ function renderDashboardData(shop, data) {
     document.getElementById('kds-avg-speed').textContent = formattedAvgSpeed;
 
     const seatsCard = document.getElementById('seats-card');
-    if (shop === 'Meals') {
-        seatsCard.style.display = 'block';
-        document.getElementById('seats-val').textContent = data.seats;
-        document.getElementById('seat-text').textContent = data.seats;
-        const offset = (2 * Math.PI * 28) - (data.seats / 120) * (2 * Math.PI * 28);
-        document.getElementById('seat-ring').style.strokeDasharray = 2 * Math.PI * 28;
-        document.getElementById('seat-ring').style.strokeDashoffset = offset;
-    } else {
-        seatsCard.style.display = 'none';
-    }
+    seatsCard.style.display = 'block';
+    document.getElementById('seats-val').textContent = data.seats;
+    document.getElementById('seat-text').textContent = data.seats;
+    const offset = (2 * Math.PI * 28) - (data.seats / 120) * (2 * Math.PI * 28);
+    document.getElementById('seat-ring').style.strokeDasharray = 2 * Math.PI * 28;
+    document.getElementById('seat-ring').style.strokeDashoffset = offset;
 
     const badge = document.getElementById('traffic-badge');
     badge.className = 'badge-glow ' + (data.traffic === 'High' ? 'danger' : data.traffic === 'Medium' ? 'warning' : 'success');
@@ -375,15 +376,33 @@ function formatServedTime(timestamp) {
     return timestamp || '';
 }
 
+function normalizeShopId(shop) {
+    return (shop || '').toLowerCase();
+}
+
+function updateServedNotices() {
+    const now = Date.now();
+    orderShops.forEach((shop) => {
+        const noticeEl = document.getElementById(`serve-notice-${normalizeShopId(shop)}`);
+        if (!noticeEl) {
+            return;
+        }
+        const active = servedNoticeExpiryByShop[shop] > now;
+        noticeEl.style.display = active ? 'inline-flex' : 'none';
+    });
+}
+
 async function fetchMyOrders() {
     const rollNo = localStorage.getItem('userRollNo');
     if (!rollNo) {
         return;
     }
 
-    const activeList = document.getElementById('active-orders-list');
-    const completedList = document.getElementById('completed-orders-list');
-    if (!activeList || !completedList) {
+    const hasOrdersUi = orderShops.every((shop) => {
+        const id = normalizeShopId(shop);
+        return document.getElementById(`active-orders-list-${id}`) && document.getElementById(`completed-orders-list-${id}`);
+    });
+    if (!hasOrdersUi) {
         return;
     }
 
@@ -394,28 +413,91 @@ async function fetchMyOrders() {
         let completedItems = Array.isArray(data.completed) ? data.completed : [];
         myActiveShops.clear();
 
-        activeList.innerHTML = activeItems.length
-            ? activeItems.map((order) => {
-                myActiveShops.add(order.shop);
-                return `<li class="order-item preparing">
-                            <span style="font-weight: bold;">${order.shop}</span>
-                            <span class="badge preparing">Preparing</span>
-                        </li>`;
-            }).join('')
-            : '<li style="color: #999; font-size: 0.9rem;">No active orders.</li>';
+        const activeByShop = { Meals: [], Snacks: [], Beverages: [] };
+        const completedByShop = { Meals: [], Snacks: [], Beverages: [] };
 
-        completedList.innerHTML = completedItems.length
-            ? completedItems.map((order) => {
-                const servedTime = formatServedTime(order.time_served || order.timestamp);
-                return `<li class="order-item served">
-                            <div style="flex-grow: 1;">
-                                <div style="font-weight: bold;">${order.shop}</div>
-                                <div style="font-size: 0.75rem; color: #999; margin-top: 2px;">Served at ${servedTime || '--'}</div>
-                            </div>
-                            <span class="badge served">Served</span>
-                        </li>`;
-            }).join('')
-            : '<li style="color: #999; font-size: 0.9rem;">No recently served orders.</li>';
+        activeItems.forEach((order) => {
+            if (activeByShop[order.shop]) {
+                activeByShop[order.shop].push(order);
+                myActiveShops.add(order.shop);
+            }
+        });
+
+        completedItems.forEach((order) => {
+            if (completedByShop[order.shop]) {
+                completedByShop[order.shop].push(order);
+            }
+        });
+
+        if (!completedBootstrapDone) {
+            completedItems.forEach((order) => {
+                seenCompletedOrderKeys.add(`${order.shop}|${order.time_served || order.timestamp || ''}`);
+            });
+            completedBootstrapDone = true;
+        } else {
+            completedItems.forEach((order) => {
+                const key = `${order.shop}|${order.time_served || order.timestamp || ''}`;
+                if (!seenCompletedOrderKeys.has(key)) {
+                    seenCompletedOrderKeys.add(key);
+                    if (servedNoticeExpiryByShop[order.shop] !== undefined) {
+                        servedNoticeExpiryByShop[order.shop] = Date.now() + 60_000;
+                    }
+                }
+            });
+        }
+
+        orderShops.forEach((shop) => {
+            const shopId = normalizeShopId(shop);
+            const activeListEl = document.getElementById(`active-orders-list-${shopId}`);
+            const completedListEl = document.getElementById(`completed-orders-list-${shopId}`);
+
+            activeListEl.innerHTML = activeByShop[shop].length
+                ? activeByShop[shop].map(() => {
+                    return `<li class="order-item preparing">
+                                <span style="font-weight: bold;">${shop}</span>
+                                <span class="badge preparing">Preparing</span>
+                            </li>`;
+                }).join('')
+                : '<li style="color: #999; font-size: 0.9rem;">No active orders.</li>';
+
+            completedListEl.innerHTML = completedByShop[shop].length
+                ? completedByShop[shop].map((order) => {
+                    const servedTime = formatServedTime(order.time_served || order.timestamp);
+                    return `<li class="order-item served">
+                                <div style="flex-grow: 1;">
+                                    <div style="font-weight: bold;">${shop}</div>
+                                    <div style="font-size: 0.75rem; color: #999; margin-top: 2px;">Served at ${servedTime || '--'}</div>
+                                </div>
+                                <span class="badge served">Served</span>
+                            </li>`;
+                }).join('')
+                : '<li style="color: #999; font-size: 0.9rem;">No recently served orders.</li>';
+        });
+
+        updateServedNotices();
+
+        const selectedShop = document.getElementById('student-shop-selector')?.value || currentShop;
+        const notificationBanner = document.getElementById('order-ready-notification');
+        const readyShopName = document.getElementById('ready-shop-name');
+
+        // Find the most recently served order for the CURRENTLY selected shop
+        const recentShopOrder = completedItems.find(order => order.shop === selectedShop);
+
+        if (notificationBanner && readyShopName && recentShopOrder && recentShopOrder.time_served_raw) {
+            const serveTime = new Date(recentShopOrder.time_served_raw);
+            const currentTime = new Date();
+            const differenceInMs = currentTime - serveTime;
+
+            // 2 minutes = 120,000 milliseconds
+            if (differenceInMs <= 120000) {
+                readyShopName.innerText = selectedShop;
+                notificationBanner.style.display = 'block';
+            } else {
+                notificationBanner.style.display = 'none';
+            }
+        } else if (notificationBanner) {
+            notificationBanner.style.display = 'none';
+        }
 
         updateButtonStates();
     } catch (e) {
@@ -442,10 +524,10 @@ function optimisticIncrementQueue() {
 }
 
 document.getElementById('join-btn').addEventListener('click', async () => {
-    const rollNo = localStorage.getItem('userRollNo');
-    const selectedShop = document.getElementById('student-shop-selector')?.value || currentShop;
+    const rollNo = localStorage.getItem('userRollNo')?.trim().toUpperCase();
+    const shop = document.getElementById('student-shop-selector')?.value || currentShop;
     if (!rollNo) {
-        showToast("Missing roll number. Please log in again.", "error");
+        alert("Error: User session not found. Please log in again.");
         return;
     }
 
@@ -455,7 +537,10 @@ document.getElementById('join-btn').addEventListener('click', async () => {
         const res = await fetch(`${BASE_URL}/join`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ roll_no: rollNo, shop: selectedShop }),
+            body: JSON.stringify({
+                roll_no: rollNo,
+                shop: shop
+            }),
         });
 
         if (!res.ok) {
@@ -468,12 +553,12 @@ document.getElementById('join-btn').addEventListener('click', async () => {
             return;
         }
 
-        showToast(`Successfully joined the ${selectedShop} queue!`);
-        await updateDashboardUI({ shop: selectedShop });
+        showToast(`Successfully joined the ${shop} queue!`);
+        await updateDashboardUI({ shop: shop });
     } catch (e) {
         console.error("Join Queue Error:", e);
         showToast("Could not join queue. Check backend status.", "error");
-        await updateDashboardUI({ shop: selectedShop, silent: true });
+        await updateDashboardUI({ shop: shop, silent: true });
     }
 });
 
@@ -833,6 +918,8 @@ prefetchDashboardStatuses();
 updateDashboardUI({ shop: currentShop, silent: true });
 renderOrders();
 updateButtonStates();
+updateServedNotices();
+setInterval(updateServedNotices, 1000);
 
 // Silently fetch new data from the database every 5 seconds!
 setInterval(() => {

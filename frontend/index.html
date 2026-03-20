@@ -57,6 +57,9 @@
             <button class="nav-link active" data-target="dashboard">
                 <i data-lucide="layout-dashboard"></i> <span class="nav-label">Live Dashboard</span>
             </button>
+            <button class="nav-link" data-target="orders">
+                <i data-lucide="shopping-bag"></i> <span class="nav-label">My Orders</span>
+            </button>
             <button class="nav-link" data-target="planner">
                 <i data-lucide="brain-circuit"></i> <span class="nav-label">Future Planner</span>
             </button>
@@ -77,6 +80,10 @@
                         <button class="shop-tab active" data-shop="Meals">Meals</button>
                         <button class="shop-tab" data-shop="Snacks">Snacks</button>
                         <button class="shop-tab" data-shop="Beverages">Beverages</button>
+                    </div>
+
+                    <div id="order-ready-notification" style="display: none; background: #10b981; color: white; padding: 12px; border-radius: 8px; margin-bottom: 15px; font-weight: bold; text-align: center; box-shadow: 0 4px 6px rgba(0,0,0,0.1); animation: popIn 0.3s ease-out;">
+                        🎉 Your <span id="ready-shop-name"></span> order is ready for pickup!
                     </div>
 
                     <div class="bento-grid slide-up" style="animation-delay: 0.2s;">
@@ -106,18 +113,6 @@
                         </div>
                     </div>
 
-                    <div id="my-orders-section" class="card" style="margin-top: 20px;">
-                        <h3 style="margin-bottom: 15px; border-bottom: 1px solid #eee; padding-bottom: 10px;">My Orders</h3>
-                        <div style="margin-bottom: 15px;">
-                            <h4 style="font-size: 0.9rem; color: #666; margin-bottom: 8px;">PREPARING NOW</h4>
-                            <ul id="active-orders-list" class="order-list"></ul>
-                        </div>
-                        <div>
-                            <h4 style="font-size: 0.9rem; color: #666; margin-bottom: 8px;">RECENTLY SERVED</h4>
-                            <ul id="completed-orders-list" class="order-list"></ul>
-                        </div>
-                    </div>
-
                     <div class="status-row slide-up" style="animation-delay: 0.3s;">
                         <span class="status-label">Campus Traffic Status</span>
                         <span class="badge-glow warning" id="traffic-badge">
@@ -135,6 +130,50 @@
                             </button>
                         </div>
                         <div id="reader" style="display: none; margin-top: 1rem;"></div>
+                    </div>
+                </div>
+            </section>
+
+            <section id="orders" class="page-view" style="display: none;">
+                <div class="orders-page">
+                    <div class="planner-header slide-up">
+                        <h1>My Orders</h1>
+                        <p>Track active and served orders by section.</p>
+                    </div>
+
+                    <div class="orders-grid slide-up" style="animation-delay: 0.1s;">
+                        <div class="glass-card order-section-card">
+                            <div class="order-section-top">
+                                <h3>Meals</h3>
+                                <span id="serve-notice-meals" class="serve-notice" style="display: none;">Served now - collect within 1 min</span>
+                            </div>
+                            <div class="order-subtitle">Preparing</div>
+                            <ul id="active-orders-list-meals" class="order-list"></ul>
+                            <div class="order-subtitle" style="margin-top: 1rem;">Recently Served</div>
+                            <ul id="completed-orders-list-meals" class="order-list"></ul>
+                        </div>
+
+                        <div class="glass-card order-section-card">
+                            <div class="order-section-top">
+                                <h3>Snacks</h3>
+                                <span id="serve-notice-snacks" class="serve-notice" style="display: none;">Served now - collect within 1 min</span>
+                            </div>
+                            <div class="order-subtitle">Preparing</div>
+                            <ul id="active-orders-list-snacks" class="order-list"></ul>
+                            <div class="order-subtitle" style="margin-top: 1rem;">Recently Served</div>
+                            <ul id="completed-orders-list-snacks" class="order-list"></ul>
+                        </div>
+
+                        <div class="glass-card order-section-card">
+                            <div class="order-section-top">
+                                <h3>Beverages</h3>
+                                <span id="serve-notice-beverages" class="serve-notice" style="display: none;">Served now - collect within 1 min</span>
+                            </div>
+                            <div class="order-subtitle">Preparing</div>
+                            <ul id="active-orders-list-beverages" class="order-list"></ul>
+                            <div class="order-subtitle" style="margin-top: 1rem;">Recently Served</div>
+                            <ul id="completed-orders-list-beverages" class="order-list"></ul>
+                        </div>
                     </div>
                 </div>
             </section>

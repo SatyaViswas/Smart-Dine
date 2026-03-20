@@ -83,8 +83,8 @@ def join_queue(req: CheckInReq):
 
         exact_time_in = datetime.now(timezone.utc)
         c.execute(
-            "INSERT INTO active_queue (roll_no, shop, time_in) VALUES (%s, %s, %s)",
-            (clean_roll_no, req.shop, exact_time_in)
+            "INSERT INTO active_queue (uid, roll_no, shop, time_in) VALUES (%s, %s, %s, %s)",
+            (clean_roll_no, clean_roll_no, req.shop, exact_time_in)
         )
         conn.commit()
         return {"status": "success"}
@@ -119,11 +119,13 @@ def get_my_orders(roll_no: str):
         )
         completed = []
         for r in c.fetchall():
-            order_dict = {"shop": r[0], "time_served": None}
+            order_dict = {"shop": r[0], "time_served": None, "time_served_raw": None}
+            time_utc = None
             if r[1]:
                 time_utc = r[1].replace(tzinfo=timezone.utc)
                 time_ist = time_utc.astimezone(IST)
                 order_dict["time_served"] = time_ist.strftime('%I:%M %p')
+            order_dict["time_served_raw"] = time_utc.isoformat() if time_utc else None
             completed.append(order_dict)
 
         return {"active": active, "completed": completed}
@@ -178,7 +180,7 @@ def get_orders(shop: str):
     try:
         conn = get_db_connection()
         c = conn.cursor()
-        c.execute("SELECT id, uid, shop, time_in FROM active_queue WHERE shop = %s ORDER BY time_in ASC", (shop,))
+        c.execute("SELECT id, COALESCE(uid, roll_no), shop, time_in FROM active_queue WHERE shop = %s ORDER BY time_in ASC", (shop,))
         orders = []
         for r in c.fetchall():
             order_dict = {"id": r[0], "uid": r[1], "shop": r[2], "time_in": None}
