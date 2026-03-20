@@ -3,7 +3,7 @@ lucide.createIcons();
 
 // --- STATE MANAGEMENT ---
 const API_HOST = window.location.hostname || '127.0.0.1';
-const BASE_URL = `https://angel-devel-reasonable-increasing.trycloudflare.com/api`;
+const BASE_URL = `https://issn-stockholm-backed-desire.trycloudflare.com/api`;
 
 // --- AUTHENTICATION LOGIC (LOGIN & SIGNUP) ---
 const authScreen = document.getElementById('auth-screen');
@@ -372,9 +372,7 @@ async function updateDashboardUI({ shop = currentShop, silent = false } = {}) {
 }
 
 function formatServedTime(timestamp) {
-    if (!timestamp) return '';
-    const date = new Date(timestamp);
-    return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    return timestamp || '';
 }
 
 async function fetchMyOrders() {
@@ -406,20 +404,13 @@ async function fetchMyOrders() {
             }).join('')
             : '<li style="color: #999; font-size: 0.9rem;">No active orders.</li>';
 
-        // Sort completed items by timestamp (newest first)
-        completedItems.sort((a, b) => {
-            const timeA = new Date(a.timestamp).getTime();
-            const timeB = new Date(b.timestamp).getTime();
-            return timeB - timeA;
-        });
-
         completedList.innerHTML = completedItems.length
             ? completedItems.map((order) => {
-                const servedTime = formatServedTime(order.timestamp);
+                const servedTime = formatServedTime(order.time_served || order.timestamp);
                 return `<li class="order-item served">
                             <div style="flex-grow: 1;">
                                 <div style="font-weight: bold;">${order.shop}</div>
-                                <div style="font-size: 0.75rem; color: #999; margin-top: 2px;">Served at ${servedTime}</div>
+                                <div style="font-size: 0.75rem; color: #999; margin-top: 2px;">Served at ${servedTime || '--'}</div>
                             </div>
                             <span class="badge served">Served</span>
                         </li>`;
@@ -690,11 +681,9 @@ async function renderOrders() {
         }
 
         grid.innerHTML = orders.map(order => {
-            const timeObj = new Date(order.time_in * 1000);
-            const timeStr = timeObj.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
             return `
             <div class="glass-card order-card fade-in" id="card-${order.id}">
-                <div class="order-top"><span class="order-id">ORD-${order.id}</span><span>${timeStr}</span></div>
+                <div class="order-top"><span class="order-id">ORD-${order.id}</span><span>${order.time_in || '--'}</span></div>
                 <div class="order-detail">UID: ${order.uid}</div>
                 <div class="order-items">Shop: ${order.shop}</div>
                 <button class="btn-outline" onclick="serveOrder(${order.id})" style="width: 100%;"><i data-lucide="check-circle" style="width: 16px;"></i> Mark Served</button>

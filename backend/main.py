@@ -5,8 +5,7 @@ from pydantic import BaseModel
 import psycopg2
 from psycopg2.pool import SimpleConnectionPool
 import hashlib
-import time
-from datetime import datetime, timedelta
+from datetime import datetime, timezone, timedelta
 import random
 from ml_model import predict_future_wait
 import os
@@ -18,6 +17,7 @@ load_dotenv()
 # Securely fetch the URL
 DB_URL = os.getenv("DATABASE_URL")
 db_pool = SimpleConnectionPool(1, 10, DB_URL)
+IST = timezone(timedelta(hours=5, minutes=30))
 
 
 app = FastAPI()
@@ -81,9 +81,10 @@ def join_queue(req: CheckInReq):
                 content={"error": "You already have an active order in this section. Please wait until it is served."}
             )
 
+        exact_time_in = datetime.now(timezone.utc)
         c.execute(
-            "INSERT INTO active_queue (uid, roll_no, shop, time_in) VALUES (%s, %s, %s, %s)",
-            (clean_roll_no, clean_roll_no, req.shop, time.time())
+            "INSERT INTO active_queue (roll_no, shop, time_in) VALUES (%s, %s, %s)",
+            (clean_roll_no, req.shop, exact_time_in)
         )
         conn.commit()
         return {"status": "success"}
@@ -103,13 +104,27 @@ def get_my_orders(roll_no: str):
         clean_roll_no = roll_no.strip().upper()
 
         c.execute("SELECT shop, time_in FROM active_queue WHERE roll_no = %s ORDER BY time_in DESC", (clean_roll_no,))
-        active = [{"shop": r[0], "time_in": r[1]} for r in c.fetchall()]
+        active = []
+        for r in c.fetchall():
+            order_dict = {"shop": r[0], "time_in": None}
+            if r[1]:
+                time_utc = r[1].replace(tzinfo=timezone.utc)
+                time_ist = time_utc.astimezone(IST)
+                order_dict["time_in"] = time_ist.strftime('%I:%M %p')
+            active.append(order_dict)
 
         c.execute(
-            "SELECT shop, timestamp FROM history_log WHERE roll_no = %s ORDER BY id DESC LIMIT 5",
+            "SELECT shop, time_served FROM history_log WHERE roll_no = %s ORDER BY time_served DESC LIMIT 5",
             (clean_roll_no,)
         )
-        completed = [{"shop": r[0], "timestamp": r[1]} for r in c.fetchall()]
+        completed = []
+        for r in c.fetchall():
+            order_dict = {"shop": r[0], "time_served": None}
+            if r[1]:
+                time_utc = r[1].replace(tzinfo=timezone.utc)
+                time_ist = time_utc.astimezone(IST)
+                order_dict["time_served"] = time_ist.strftime('%I:%M %p')
+            completed.append(order_dict)
 
         return {"active": active, "completed": completed}
     finally:
@@ -144,7 +159,7 @@ def scan_checkin(req: ScanCheckInReq):
 
         c.execute(
             "INSERT INTO active_queue (uid, roll_no, shop, time_in) VALUES (%s, %s, %s, %s)",
-            (clean_roll_no, clean_roll_no, req.shop, time.time())
+            (clean_roll_no, clean_roll_no, req.shop, datetime.now(timezone.utc))
         )
         conn.commit()
     except Exception:
@@ -164,7 +179,14 @@ def get_orders(shop: str):
         conn = get_db_connection()
         c = conn.cursor()
         c.execute("SELECT id, uid, shop, time_in FROM active_queue WHERE shop = %s ORDER BY time_in ASC", (shop,))
-        orders = [{"id": r[0], "uid": r[1], "shop": r[2], "time_in": r[3]} for r in c.fetchall()]
+        orders = []
+        for r in c.fetchall():
+            order_dict = {"id": r[0], "uid": r[1], "shop": r[2], "time_in": None}
+            if r[3]:
+                time_utc = r[3].replace(tzinfo=timezone.utc)
+                time_ist = time_utc.astimezone(IST)
+                order_dict["time_in"] = time_ist.strftime('%I:%M %p')
+            orders.append(order_dict)
         return orders
     finally:
         release_db_connection(conn)
@@ -179,29 +201,36 @@ def serve_order(order_id: int):
         c.execute("SELECT COALESCE(roll_no, uid), shop, time_in FROM active_queue WHERE id=%s", (order_id,))
         order = c.fetchone()
         if order:
-            duration = time.time() - order[2]
-            now = datetime.now()
-            current_minute = now.minute
+            time_served = datetime.now(timezone.utc)
+            time_in_value = order[2]
+            if isinstance(time_in_value, datetime):
+                time_in_utc = time_in_value.replace(tzinfo=timezone.utc)
+            else:
+                time_in_utc = datetime.fromtimestamp(float(time_in_value), timezone.utc)
+
+            service_duration = max(0.0, (time_served - time_in_utc).total_seconds())
+
+            current_minute = time_served.minute
             roll_no = order[0]
             shop = order[1]
 
             occupies_seat = False
-            seat_release_time = datetime.now()
+            seat_release_time = time_served
 
             if shop == "Meals":
                 occupies_seat = True
-                seat_release_time = datetime.now() + timedelta(minutes=random.randint(20, 25))
+                seat_release_time = time_served + timedelta(minutes=random.randint(20, 25))
             elif shop in ["Snacks", "Beverages"]:
-                if random.random() < 0.10:
+                if random.random() <= 0.20:
                     occupies_seat = True
-                    seat_release_time = datetime.now() + timedelta(minutes=random.randint(10, 15))
+                    seat_release_time = time_served + timedelta(minutes=random.randint(10, 15))
 
             c.execute("SELECT COUNT(*) FROM active_queue WHERE shop=%s", (shop,))
             queue = c.fetchone()[0]
 
             c.execute(
-                "INSERT INTO history_log (roll_no, shop, day_of_week, hour_of_day, minute, queue_length, service_duration, occupies_seat, seat_release_time, timestamp) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)",
-                (roll_no, shop, now.weekday(), now.hour, current_minute, queue, duration, occupies_seat, seat_release_time, now)
+                "INSERT INTO history_log (roll_no, shop, day_of_week, hour_of_day, minute, queue_length, service_duration, occupies_seat, seat_release_time, time_served) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)",
+                (roll_no, shop, time_served.weekday(), time_served.hour, current_minute, queue, service_duration, occupies_seat, seat_release_time, time_served)
             )
             c.execute("DELETE FROM active_queue WHERE id=%s", (order_id,))
             conn.commit()

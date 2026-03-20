@@ -3,6 +3,7 @@ import random
 import math
 import os
 from datetime import datetime
+from zoneinfo import ZoneInfo
 from dotenv import load_dotenv
 
 # Load the secrets from the .env file into Python's memory
@@ -10,6 +11,7 @@ load_dotenv()
 
 # Securely fetch the URL
 DB_URL = os.getenv("DATABASE_URL")
+IST = ZoneInfo("Asia/Kolkata")
 
 # --- (The rest of your code remains exactly the same!) ---
 def initialize_cloud_database():
@@ -19,12 +21,26 @@ def initialize_cloud_database():
     
     # 1. Create Tables (Notice 'SERIAL' instead of 'AUTOINCREMENT' for Postgres)
     c.execute('''CREATE TABLE IF NOT EXISTS active_queue 
-                 (id SERIAL PRIMARY KEY, uid TEXT, roll_no TEXT, shop TEXT, time_in REAL)''')
+                 (id SERIAL PRIMARY KEY, uid TEXT, roll_no TEXT, shop TEXT, time_in TIMESTAMP)''')
     c.execute('''ALTER TABLE active_queue ADD COLUMN IF NOT EXISTS roll_no TEXT''')
     c.execute('''UPDATE active_queue SET roll_no = uid WHERE roll_no IS NULL AND uid IS NOT NULL''')
+
+    # Migrate legacy epoch-based time_in values to TIMESTAMP.
+    c.execute('''
+        SELECT data_type
+        FROM information_schema.columns
+        WHERE table_schema = 'public' AND table_name = 'active_queue' AND column_name = 'time_in'
+    ''')
+    time_in_type = c.fetchone()
+    if time_in_type and time_in_type[0] in ("real", "double precision", "numeric"):
+        c.execute('''
+            ALTER TABLE active_queue
+            ALTER COLUMN time_in TYPE TIMESTAMP
+            USING to_timestamp(time_in)
+        ''')
                   
     c.execute('''CREATE TABLE IF NOT EXISTS history_log 
-                 (id SERIAL PRIMARY KEY, roll_no TEXT, shop TEXT, day_of_week INTEGER, hour_of_day INTEGER, minute INTEGER, queue_length INTEGER, service_duration REAL, occupies_seat BOOLEAN, seat_release_time TIMESTAMP)''')
+                 (id SERIAL PRIMARY KEY, roll_no TEXT, shop TEXT, day_of_week INTEGER, hour_of_day INTEGER, minute INTEGER, queue_length INTEGER, service_duration REAL, occupies_seat BOOLEAN, seat_release_time TIMESTAMP, time_served TIMESTAMP)''')
 
     # Ensure existing deployments also have minute-level granularity support
     c.execute('''ALTER TABLE history_log ADD COLUMN IF NOT EXISTS minute INTEGER''')
@@ -32,10 +48,12 @@ def initialize_cloud_database():
     c.execute('''ALTER TABLE history_log ADD COLUMN IF NOT EXISTS occupies_seat BOOLEAN DEFAULT FALSE''')
     c.execute('''ALTER TABLE history_log ADD COLUMN IF NOT EXISTS seat_release_time TIMESTAMP DEFAULT '2000-01-01 00:00:00' ''')
     c.execute('''ALTER TABLE history_log ADD COLUMN IF NOT EXISTS timestamp TIMESTAMP DEFAULT NOW()''')
+    c.execute('''ALTER TABLE history_log ADD COLUMN IF NOT EXISTS time_served TIMESTAMP''')
     #c.execute('''UPDATE history_log SET roll_no = uid WHERE roll_no IS NULL AND uid IS NOT NULL''')
     c.execute('''UPDATE history_log SET occupies_seat = FALSE WHERE occupies_seat IS NULL''')
     c.execute('''UPDATE history_log SET seat_release_time = '2000-01-01 00:00:00' WHERE seat_release_time IS NULL''')
     c.execute('''UPDATE history_log SET timestamp = NOW() WHERE timestamp IS NULL''')
+    c.execute('''UPDATE history_log SET time_served = COALESCE(time_served, timestamp, NOW()) WHERE time_served IS NULL''')
     # Add this right below where you create the active_queue and history_log tables
 
     # 1. Create the Students Table
@@ -98,9 +116,9 @@ def initialize_cloud_database():
             # Apply the day multiplier and ensure queue doesn't drop below 0
             queue_len = max(0, int(round(queue_len * day_multipliers[day])))
 
-            c.execute('''INSERT INTO history_log (roll_no, shop, day_of_week, hour_of_day, minute, queue_length, service_duration, occupies_seat, seat_release_time)
-                         VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)''',
-                      (f"24B81A{random.randint(1000,9999)}", shop, day, hour, minute, queue_len, service_duration, False, datetime(2000, 1, 1, 0, 0, 0)))
+            c.execute('''INSERT INTO history_log (roll_no, shop, day_of_week, hour_of_day, minute, queue_length, service_duration, occupies_seat, seat_release_time, time_served)
+                         VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)''',
+                      (f"24B81A{random.randint(1000,9999)}", shop, day, hour, minute, queue_len, service_duration, False, datetime(2000, 1, 1, 0, 0, 0), datetime.now(IST)))
 
             if i % 100 == 0 and i > 0:
                 print(f"Pushed {i} rows...")
