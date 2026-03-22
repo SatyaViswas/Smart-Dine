@@ -103,6 +103,13 @@ def get_my_orders(roll_no: str):
         c = conn.cursor()
         clean_roll_no = roll_no.strip().upper()
 
+        # Get current time in IST
+        now_ist = datetime.now(IST)
+        # Roll it back to 12:00:00 AM today
+        start_of_today_ist = now_ist.replace(hour=0, minute=0, second=0, microsecond=0)
+        # Convert that midnight strictly to UTC for the database
+        start_of_today_utc = start_of_today_ist.astimezone(timezone.utc)
+
         c.execute("SELECT shop, time_in FROM active_queue WHERE roll_no = %s ORDER BY time_in DESC", (clean_roll_no,))
         active = []
         for r in c.fetchall():
@@ -113,10 +120,11 @@ def get_my_orders(roll_no: str):
                 order_dict["time_in"] = time_ist.strftime('%I:%M %p')
             active.append(order_dict)
 
-        c.execute(
-            "SELECT shop, time_served FROM history_log WHERE roll_no = %s ORDER BY time_served DESC LIMIT 5",
-            (clean_roll_no,)
-        )
+        c.execute('''SELECT shop, time_served 
+             FROM history_log 
+             WHERE roll_no = %s AND time_served >= %s 
+             ORDER BY time_served DESC''', 
+          (clean_roll_no, start_of_today_utc))
         completed = []
         for r in c.fetchall():
             order_dict = {"shop": r[0], "time_served": None, "time_served_raw": None}

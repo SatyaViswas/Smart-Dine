@@ -3,7 +3,7 @@ lucide.createIcons();
 
 // --- STATE MANAGEMENT ---
 const API_HOST = window.location.hostname || '127.0.0.1';
-const BASE_URL = `https://issn-stockholm-backed-desire.trycloudflare.com/api`;
+const BASE_URL = `https://consensus-marijuana-blond-polls.trycloudflare.com/api`;
 
 // --- AUTHENTICATION LOGIC (LOGIN & SIGNUP) ---
 const authScreen = document.getElementById('auth-screen');
@@ -201,6 +201,7 @@ document.getElementById('staff-logout-btn').addEventListener('click', () => {
     }
 });
 let currentShop = 'Meals';
+let shopDataCache = { "Meals": null, "Snacks": null, "Beverages": null };
 const statusCache = {};
 let dashboardRequestSeq = 0;
 let myActiveShops = new Set();
@@ -281,20 +282,99 @@ navLinks.forEach(link => {
 
 // --- LIVE DASHBOARD LOGIC ---
 const shopTabs = document.querySelectorAll('.shop-tab');
+
+function cacheShopStatus(shopName, data) {
+    const existing = shopDataCache[shopName] && typeof shopDataCache[shopName] === 'object'
+        ? shopDataCache[shopName]
+        : {};
+    shopDataCache[shopName] = { ...existing, status: data };
+}
+
+function cacheShopOrders(shopName, ordersByShop) {
+    const existing = shopDataCache[shopName] && typeof shopDataCache[shopName] === 'object'
+        ? shopDataCache[shopName]
+        : {};
+    shopDataCache[shopName] = { ...existing, orders: ordersByShop };
+}
+
+function renderOrdersForSingleShop(shop, ordersByShop) {
+    const shopId = normalizeShopId(shop);
+    const activeListEl = document.getElementById(`active-orders-list-${shopId}`);
+    const completedListEl = document.getElementById(`completed-orders-list-${shopId}`);
+    if (!activeListEl || !completedListEl) {
+        return;
+    }
+
+    const activeOrders = Array.isArray(ordersByShop?.active) ? ordersByShop.active : [];
+    const completedOrders = Array.isArray(ordersByShop?.completed) ? ordersByShop.completed : [];
+
+    if (activeOrders.length > 0) {
+        myActiveShops.add(shop);
+    } else {
+        myActiveShops.delete(shop);
+    }
+
+    activeListEl.innerHTML = activeOrders.length
+        ? activeOrders.map(() => {
+            return `<li class="order-item preparing">
+                        <span style="font-weight: bold;">${shop}</span>
+                        <span class="badge preparing">Preparing</span>
+                    </li>`;
+        }).join('')
+        : '<li style="color: #999; font-size: 0.9rem;">No active orders.</li>';
+
+    completedListEl.innerHTML = completedOrders.length
+        ? completedOrders.map((order) => {
+            const servedTime = formatServedTime(order.time_served || order.timestamp);
+            return `<li class="order-item served">
+                        <div style="flex-grow: 1;">
+                            <div style="font-weight: bold;">${shop}</div>
+                            <div style="font-size: 0.75rem; color: #999; margin-top: 2px;">Served at ${servedTime || '--'}</div>
+                        </div>
+                        <span class="badge served">Served</span>
+                    </li>`;
+        }).join('')
+        : '<li style="color: #999; font-size: 0.9rem;">No recently served orders.</li>';
+}
+
+function renderFromCache(shop) {
+    const cached = shopDataCache[shop];
+    if (!cached || typeof cached !== 'object') {
+        return;
+    }
+
+    if (cached.status) {
+        renderDashboardData(shop, cached.status);
+    }
+
+    if (cached.orders) {
+        renderOrdersForSingleShop(shop, cached.orders);
+        updateButtonStates();
+    }
+}
+
 shopTabs.forEach(tab => {
     tab.addEventListener('click', (e) => {
+        // 1) Update visual state immediately
         shopTabs.forEach(t => t.classList.remove('active'));
         e.target.classList.add('active');
+
+        // 2) Update selected shop state
         currentShop = e.target.getAttribute('data-shop');
         const selector = document.getElementById('student-shop-selector');
         if (selector) {
             selector.value = currentShop;
         }
+
+        // 3) Render immediately from local cache if present
         renderShopChrome(currentShop);
-        if (statusCache[currentShop]) {
-            renderDashboardData(currentShop, statusCache[currentShop]);
+        if (shopDataCache[currentShop]) {
+            renderFromCache(currentShop);
         }
+
+        // 4) Refresh in background without blocking tab switch
         updateDashboardUI({ shop: currentShop, silent: true });
+        fetchMyOrders();
     });
 });
 
@@ -302,12 +382,23 @@ const studentShopSelector = document.getElementById('student-shop-selector');
 if (studentShopSelector) {
     studentShopSelector.value = currentShop;
     studentShopSelector.addEventListener('change', (e) => {
+        // 1) Update visual state immediately
         currentShop = e.target.value;
         shopTabs.forEach((tab) => {
             tab.classList.toggle('active', tab.getAttribute('data-shop') === currentShop);
         });
+
+        // 2) Update selected shop state is done above via currentShop
+
+        // 3) Render immediately from local cache if present
         renderShopChrome(currentShop);
+        if (shopDataCache[currentShop]) {
+            renderFromCache(currentShop);
+        }
+
+        // 4) Refresh in background without blocking tab switch
         updateDashboardUI({ shop: currentShop, silent: true });
+        fetchMyOrders();
         updateButtonStates();
     });
 
@@ -353,11 +444,12 @@ async function updateDashboardUI({ shop = currentShop, silent = false } = {}) {
 
     try {
         const data = await fetchJson(`${BASE_URL}/status?shop=${encodeURIComponent(scopedShop)}`);
+        cacheShopStatus(scopedShop, data);
         statusCache[scopedShop] = data;
 
         if (role === 'student' && scopedShop === currentShop && requestId === dashboardRequestSeq) {
-            renderDashboardData(scopedShop, data);
-            await fetchMyOrders();
+            renderFromCache(scopedShop);
+            fetchMyOrders();
         }
 
         if (role === 'staff') {
@@ -429,6 +521,14 @@ async function fetchMyOrders() {
             }
         });
 
+        orderShops.forEach((shopName) => {
+            const perShopData = {
+                active: activeByShop[shopName],
+                completed: completedByShop[shopName]
+            };
+            cacheShopOrders(shopName, perShopData);
+        });
+
         if (!completedBootstrapDone) {
             completedItems.forEach((order) => {
                 seenCompletedOrderKeys.add(`${order.shop}|${order.time_served || order.timestamp || ''}`);
@@ -447,31 +547,10 @@ async function fetchMyOrders() {
         }
 
         orderShops.forEach((shop) => {
-            const shopId = normalizeShopId(shop);
-            const activeListEl = document.getElementById(`active-orders-list-${shopId}`);
-            const completedListEl = document.getElementById(`completed-orders-list-${shopId}`);
-
-            activeListEl.innerHTML = activeByShop[shop].length
-                ? activeByShop[shop].map(() => {
-                    return `<li class="order-item preparing">
-                                <span style="font-weight: bold;">${shop}</span>
-                                <span class="badge preparing">Preparing</span>
-                            </li>`;
-                }).join('')
-                : '<li style="color: #999; font-size: 0.9rem;">No active orders.</li>';
-
-            completedListEl.innerHTML = completedByShop[shop].length
-                ? completedByShop[shop].map((order) => {
-                    const servedTime = formatServedTime(order.time_served || order.timestamp);
-                    return `<li class="order-item served">
-                                <div style="flex-grow: 1;">
-                                    <div style="font-weight: bold;">${shop}</div>
-                                    <div style="font-size: 0.75rem; color: #999; margin-top: 2px;">Served at ${servedTime || '--'}</div>
-                                </div>
-                                <span class="badge served">Served</span>
-                            </li>`;
-                }).join('')
-                : '<li style="color: #999; font-size: 0.9rem;">No recently served orders.</li>';
+            renderOrdersForSingleShop(shop, {
+                active: activeByShop[shop],
+                completed: completedByShop[shop]
+            });
         });
 
         updateServedNotices();
