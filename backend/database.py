@@ -66,6 +66,7 @@ def initialize_cloud_database():
     # 1. Create the Students Table
     c.execute('''CREATE TABLE IF NOT EXISTS students 
                  (roll_no TEXT PRIMARY KEY)''')
+    c.execute('''CREATE TABLE IF NOT EXISTS student_phones (phone_number TEXT PRIMARY KEY, roll_no TEXT)''')
 
     # Ensure schema matches current auth model if the table was created earlier with extra columns
     c.execute('''ALTER TABLE students DROP COLUMN IF EXISTS name''')

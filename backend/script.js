@@ -3,8 +3,8 @@ lucide.createIcons();
 
 // --- STATE MANAGEMENT ---
 const API_HOST = window.location.hostname || '127.0.0.1';
-const BASE_URL = `https://points-earliest-perspectives-tied.trycloudflare.com/api`;
 
+const BASE_URL = window.location.origin + '/api';
 // --- AUTHENTICATION LOGIC (LOGIN & SIGNUP) ---
 const authScreen = document.getElementById('auth-screen');
 const appContent = document.getElementById('app-content');
@@ -1105,22 +1105,44 @@ function showToast(message, type = 'success') {
             new Date(y, mo).toLocaleString('default', { month: 'long' });
         document.getElementById('cal-year-display').textContent = y;
 
-        const todayStr  = toLocalStr(new Date());
-        const firstDay  = new Date(y, mo, 1).getDay();
-        const totalDays = new Date(y, mo + 1, 0).getDate();
-        let html = '<span></span>'.repeat(firstDay);
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
 
-        for (let d = 1; d <= totalDays; d++) {
-            const ds   = `${y}-${String(mo+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
-            const past = ds < todayStr;
-            const sel  = ds === dateInput.value;
-            const tod  = ds === todayStr;
-            html += `<button type="button" class="cal-day${sel?' selected':''}${tod&&!sel?' today':''}${past?' past':''}" ${past?'disabled':''} data-date="${ds}">${d}</button>`;
+        const todayStr = toLocalStr(today);
+        const firstDayIndex = new Date(y, mo, 1).getDay();
+        const daysInMonth = new Date(y, mo + 1, 0).getDate();
+        let html = '';
+
+        // Always render a fixed 6x7 grid (42 cells).
+        for (let i = 0; i < 42; i++) {
+            // Render blank cells outside current month (no hover/click).
+            if (i < firstDayIndex || i > (firstDayIndex + daysInMonth - 1)) {
+                html += '<div class="cal-empty" aria-hidden="true"></div>';
+                continue;
+            }
+
+            const dayNumber = i - firstDayIndex + 1;
+            const cellDate = new Date(y, mo, dayNumber);
+            cellDate.setHours(0, 0, 0, 0);
+
+            const ds = toLocalStr(cellDate);
+            const sel = ds === dateInput.value;
+            const tod = ds === todayStr;
+            const isPast = cellDate < today;
+            const isSunday = cellDate.getDay() === 0;
+            const isDisabled = isPast || isSunday;
+
+            html += `<button type="button" class="cal-day${sel ? ' selected' : ''}${tod && !sel ? ' today' : ''}${isDisabled ? ' disabled-date' : ''}" ${isDisabled ? 'disabled' : ''} data-date="${ds}">${dayNumber}</button>`;
         }
         document.getElementById('cal-grid').innerHTML = html;
-        document.querySelectorAll('#cal-grid .cal-day:not([disabled])').forEach(btn =>
-            btn.addEventListener('click', () => selectDate(btn.dataset.date))
-        );
+        document.querySelectorAll('#cal-grid .cal-day').forEach(btn => {
+            btn.addEventListener('click', () => {
+                if (btn.classList.contains('disabled-date') || btn.disabled) {
+                    return;
+                }
+                selectDate(btn.dataset.date);
+            });
+        });
     }
 
     function selectDate(ds) {
@@ -1141,7 +1163,17 @@ function showToast(message, type = 'success') {
 
     dateInput.addEventListener('change', function () {
         if (!this.value) return;
-        if (new Date(this.value).getDay() === 0) {
+        const chosen = new Date(this.value);
+        chosen.setHours(0, 0, 0, 0);
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+
+        if (chosen < today) {
+            showToast('Past dates are not allowed', 'error');
+            this.value = '';
+            return;
+        }
+        if (chosen.getDay() === 0) {
             showToast('Canteen is closed on Sundays', 'error');
             this.value = '';
         }
