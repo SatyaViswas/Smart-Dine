@@ -4,6 +4,7 @@ from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 import psycopg2
 from psycopg2.pool import SimpleConnectionPool
+from psycopg2.extras import RealDictCursor
 import hashlib
 from datetime import datetime, timezone, timedelta
 import random
@@ -28,6 +29,7 @@ VALID_SHOPS = {"Meals", "Snacks", "Beverages"}
 class CheckInReq(BaseModel): roll_no: str; shop: str
 class PredictReq(BaseModel): shop: str; date_string: str; time_string: str
 class ScanCheckInReq(BaseModel): roll_no: str; shop: str
+class ToggleRequest(BaseModel): shop: str; is_active: bool
 
 def get_db_connection():
     return db_pool.getconn()
@@ -73,6 +75,13 @@ def join_queue(req: CheckInReq):
         c = conn.cursor()
         clean_roll_no = req.roll_no.strip().upper()
 
+        c.execute("SELECT is_active FROM shop_settings WHERE shop = %s", (req.shop,))
+        is_active_row = c.fetchone()
+        if is_active_row is not None:
+            is_active = is_active_row[0]
+            if not is_active:
+                return JSONResponse(status_code=400, content={"error": f"The {req.shop} station is currently paused."})
+
         c.execute("SELECT COUNT(*) FROM active_queue WHERE roll_no = %s AND shop = %s", (clean_roll_no, req.shop))
         existing_count = c.fetchone()[0]
         if existing_count > 0:
@@ -92,6 +101,35 @@ def join_queue(req: CheckInReq):
         if conn:
             conn.rollback()
         raise HTTPException(status_code=500, detail="Failed to join queue")
+    finally:
+        release_db_connection(conn)
+
+@app.get("/api/shop_settings")
+def get_shop_settings():
+    conn = None
+    try:
+        conn = get_db_connection()
+        c = conn.cursor(cursor_factory=RealDictCursor)
+        c.execute("SELECT shop, is_active FROM shop_settings")
+        rows = c.fetchall()
+        return {row["shop"]: row["is_active"] for row in rows}
+    finally:
+        release_db_connection(conn)
+
+@app.post("/api/toggle_shop")
+def toggle_shop(req: ToggleRequest):
+    validate_shop(req.shop)
+    conn = None
+    try:
+        conn = get_db_connection()
+        c = conn.cursor()
+        c.execute("UPDATE shop_settings SET is_active = %s WHERE shop = %s", (req.is_active, req.shop))
+        conn.commit()
+        return {"message": "Success"}
+    except Exception:
+        if conn:
+            conn.rollback()
+        raise HTTPException(status_code=500, detail="Failed to update shop status")
     finally:
         release_db_connection(conn)
 

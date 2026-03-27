@@ -3,7 +3,7 @@ lucide.createIcons();
 
 // --- STATE MANAGEMENT ---
 const API_HOST = window.location.hostname || '127.0.0.1';
-const BASE_URL = `https://consensus-marijuana-blond-polls.trycloudflare.com/api`;
+const BASE_URL = `https://founded-annotated-bluetooth-robot.trycloudflare.com/api`;
 
 // --- AUTHENTICATION LOGIC (LOGIN & SIGNUP) ---
 const authScreen = document.getElementById('auth-screen');
@@ -202,6 +202,7 @@ document.getElementById('staff-logout-btn').addEventListener('click', () => {
 });
 let currentShop = 'Meals';
 let shopDataCache = { "Meals": null, "Snacks": null, "Beverages": null };
+let shopStatuses = { "Meals": true, "Snacks": true, "Beverages": true };
 const statusCache = {};
 let dashboardRequestSeq = 0;
 let myActiveShops = new Set();
@@ -216,6 +217,17 @@ function updateButtonStates() {
     const scanBtn = document.getElementById('scan-barcode-btn');
 
     if (!joinBtn) {
+        return;
+    }
+
+    if (shopStatuses[selectedShop] === false) {
+        joinBtn.disabled = true;
+        joinBtn.innerText = 'Station Paused';
+        joinBtn.classList.add('btn-disabled');
+        if (scanBtn) {
+            scanBtn.disabled = true;
+            scanBtn.classList.add('btn-disabled');
+        }
         return;
     }
 
@@ -235,6 +247,22 @@ function updateButtonStates() {
             scanBtn.disabled = false;
             scanBtn.classList.remove('btn-disabled');
         }
+    }
+}
+
+function syncStaffPauseButton() {
+    const btn = document.getElementById('staff-pause-btn');
+    if (!btn) {
+        return;
+    }
+    const shop = localStorage.getItem('staffShop') || 'Meals';
+    const isActive = shopStatuses[shop] !== false;
+    if (isActive) {
+        btn.style.backgroundColor = '#10b981';
+        btn.innerText = 'Accepting Orders';
+    } else {
+        btn.style.backgroundColor = '#ef4444';
+        btn.innerText = 'STATION PAUSED';
     }
 }
 
@@ -444,6 +472,18 @@ async function updateDashboardUI({ shop = currentShop, silent = false } = {}) {
 
     try {
         const data = await fetchJson(`${BASE_URL}/status?shop=${encodeURIComponent(scopedShop)}`);
+
+        try {
+            const settings = await fetchJson(`${BASE_URL}/shop_settings`);
+            if (settings && typeof settings === 'object') {
+                shopStatuses = { ...shopStatuses, ...settings };
+            }
+            updateButtonStates();
+            syncStaffPauseButton();
+        } catch (_settingsErr) {
+            // Quietly ignore settings sync errors to avoid noisy UI.
+        }
+
         cacheShopStatus(scopedShop, data);
         statusCache[scopedShop] = data;
 
@@ -455,6 +495,7 @@ async function updateDashboardUI({ shop = currentShop, silent = false } = {}) {
         if (role === 'staff') {
             const avgSpeedSeconds = Number.isFinite(data.avg_speed_seconds) ? Math.max(0, data.avg_speed_seconds) : 0;
             document.getElementById('kds-avg-speed').textContent = formatWaitTime(avgSpeedSeconds);
+            syncStaffPauseButton();
         }
     } catch (e) {
         console.error("API Offline", e);
@@ -871,6 +912,39 @@ window.serveOrder = async function(orderId) {
     }
 };
 
+document.getElementById('staff-pause-btn')?.addEventListener('click', async () => {
+    const shop = localStorage.getItem('staffShop');
+    if (!shop) {
+        return;
+    }
+    const currentStatus = shopStatuses[shop] !== false;
+    const newStatus = !currentStatus;
+
+    try {
+        await fetchJson(`${BASE_URL}/toggle_shop`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ shop: shop, is_active: newStatus })
+        });
+
+        shopStatuses[shop] = newStatus;
+        const btn = document.getElementById('staff-pause-btn');
+        if (btn) {
+            if (newStatus) {
+                btn.style.backgroundColor = '#10b981';
+                btn.innerText = 'Accepting Orders';
+            } else {
+                btn.style.backgroundColor = '#ef4444';
+                btn.innerText = 'STATION PAUSED';
+            }
+        }
+        updateButtonStates();
+    } catch (e) {
+        console.error('Failed to toggle shop state', e);
+        showToast('Could not update station status.', 'error');
+    }
+});
+
 // Keep your original showToast() function here...
 function showToast(message, type = 'success') {
     const container = document.getElementById('toast-container');
@@ -997,6 +1071,7 @@ prefetchDashboardStatuses();
 updateDashboardUI({ shop: currentShop, silent: true });
 renderOrders();
 updateButtonStates();
+syncStaffPauseButton();
 updateServedNotices();
 setInterval(updateServedNotices, 1000);
 

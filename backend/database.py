@@ -70,6 +70,12 @@ def initialize_cloud_database():
     # Ensure existing deployments also have the shop column
     c.execute('''ALTER TABLE staff ADD COLUMN IF NOT EXISTS shop TEXT''')
 
+    c.execute('''CREATE TABLE IF NOT EXISTS shop_settings (shop TEXT PRIMARY KEY, is_active BOOLEAN)''')
+
+    shops = ["Meals", "Snacks", "Beverages"]
+    for s in shops:
+        c.execute("INSERT INTO shop_settings (shop, is_active) VALUES (%s, TRUE) ON CONFLICT (shop) DO NOTHING", (s,))
+
     # 2. Inject your specific test user so you can log in
     c.execute('''INSERT INTO students (roll_no) 
                  VALUES (%s) ON CONFLICT (roll_no) DO NOTHING''', 
