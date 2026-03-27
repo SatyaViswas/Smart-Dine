@@ -82,6 +82,14 @@
                         <button class="shop-tab" data-shop="Beverages">Beverages</button>
                     </div>
 
+                    <div id="live-order-tracker" class="glass-card slide-up" style="display: none; background: #f0fdf4; border: 1px solid #bbf7d0; margin-bottom: 1.5rem; text-align: center;">
+                        <h3 style="font-size: 1rem; color: #166534; margin-bottom: 0.5rem;">
+                            <i data-lucide="chef-hat" style="width: 18px; height: 18px; vertical-align: middle;"></i> Preparing your <span id="tracker-shop-name"></span>
+                        </h3>
+                        <p style="font-size: 1.5rem; font-weight: 700; color: #15803d; margin-bottom: 0.25rem;" id="tracker-time-left">--</p>
+                        <p style="font-size: 0.85rem; color: #166534; font-weight: 500;" id="tracker-status-text">Estimated time remaining</p>
+                    </div>
+
                     <div id="order-ready-notification" style="display: none; background: #10b981; color: white; padding: 12px; border-radius: 8px; margin-bottom: 15px; font-weight: bold; text-align: center; box-shadow: 0 4px 6px rgba(0,0,0,0.1); animation: popIn 0.3s ease-out;">
                         🎉 Your <span id="ready-shop-name"></span> order is ready for pickup!
                     </div>
@@ -96,6 +104,9 @@
                             <div class="metric-icon amber"><i data-lucide="clock"></i></div>
                             <div class="metric-label">Estimated Wait</div>
                             <div class="metric-value"><span id="wait-val">-</span> <span style="font-size: 1rem;">Mins</span></div>
+                            <div id="wait-trend-container" style="display: inline-flex; align-items: center; gap: 4px; padding: 4px 8px; border-radius: 999px; font-size: 0.75rem; font-weight: 700; margin-top: 8px; background: #f1f5f9; color: #64748b; transition: all 0.3s ease;">
+                                <i data-lucide="minus" style="width: 14px; height: 14px;"></i> <span>Stable</span>
+                            </div>
                         </div>
                         <div class="glass-card metric-card full-width" id="seats-card">
                             <div class="seats-row">

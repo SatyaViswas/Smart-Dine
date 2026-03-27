@@ -403,6 +403,7 @@ shopTabs.forEach(tab => {
         // 4) Refresh in background without blocking tab switch
         updateDashboardUI({ shop: currentShop, silent: true });
         fetchMyOrders();
+        updateLiveOrderTracker();
     });
 });
 
@@ -463,6 +464,31 @@ function renderDashboardData(shop, data) {
     badge.className = 'badge-glow ' + (data.traffic === 'High' ? 'danger' : data.traffic === 'Medium' ? 'warning' : 'success');
     badge.innerHTML = `<i data-lucide="zap" style="width: 12px; height: 12px;"></i> ${data.traffic} Traffic`;
     lucide.createIcons();
+
+    const trendContainer = document.getElementById('wait-trend-container');
+    if (trendContainer && data.trend) {
+        let icon = 'minus';
+        let text = 'Stable';
+        let bg = '#f1f5f9';
+        let color = '#64748b';
+
+        if (data.trend === 'up') {
+            icon = 'trending-up';
+            text = 'Trending Up';
+            bg = '#fef2f2'; // Light Red
+            color = '#ef4444'; // Red (Bad for wait times)
+        } else if (data.trend === 'down') {
+            icon = 'trending-down';
+            text = 'Trending Down';
+            bg = '#ecfdf5'; // Light Green
+            color = '#10b981'; // Green (Good for wait times)
+        }
+
+        trendContainer.style.background = bg;
+        trendContainer.style.color = color;
+        trendContainer.innerHTML = `<i data-lucide="${icon}" style="width: 14px; height: 14px;"></i> <span>${text}</span>`;
+        lucide.createIcons(); // Re-initialize the newly injected icon
+    }
 }
 
 async function updateDashboardUI({ shop = currentShop, silent = false } = {}) {
@@ -526,6 +552,86 @@ function updateServedNotices() {
     });
 }
 
+function showOrderSkeletons() {
+    orderShops.forEach((shop) => {
+        const shopId = normalizeShopId(shop);
+        const activeListEl = document.getElementById(`active-orders-list-${shopId}`);
+        const completedListEl = document.getElementById(`completed-orders-list-${shopId}`);
+        
+        const skeletonHTML = `
+            <div class="skeleton skeleton-order-card"></div>
+            <div class="skeleton skeleton-order-card"></div>
+        `;
+
+        // Only show skeletons if the lists are currently empty (first load)
+        if (activeListEl && activeListEl.innerHTML.trim() === '') {
+            activeListEl.innerHTML = skeletonHTML;
+        }
+        if (completedListEl && completedListEl.innerHTML.trim() === '') {
+            completedListEl.innerHTML = skeletonHTML;
+        }
+    });
+}
+
+function updateLiveOrderTracker() {
+    const tracker = document.getElementById('live-order-tracker');
+    const selectedShop = document.getElementById('student-shop-selector')?.value || currentShop;
+    
+    // Get active orders for this specific shop from our cache
+    const shopData = shopDataCache[selectedShop];
+    const activeOrders = shopData?.orders?.active || [];
+    
+    if (activeOrders.length === 0) {
+        tracker.style.display = 'none';
+        return;
+    }
+    
+    // Assume the first active order is the one we are tracking
+    const order = activeOrders[0];
+    if (!order.time_in_raw || !order.expected_wait_seconds) return;
+
+    const timeIn = new Date(order.time_in_raw);
+    const expectedWaitMs = order.expected_wait_seconds * 1000;
+    const targetTime = new Date(timeIn.getTime() + expectedWaitMs);
+    const now = new Date();
+    
+    const remainingMs = targetTime - now;
+    
+    document.getElementById('tracker-shop-name').innerText = selectedShop;
+    const timeLeftEl = document.getElementById('tracker-time-left');
+    const statusTextEl = document.getElementById('tracker-status-text');
+    
+    tracker.style.display = 'block';
+    
+    if (remainingMs > 60000) {
+        // More than 1 minute
+        const mins = Math.ceil(remainingMs / 60000);
+        timeLeftEl.innerText = `${mins}m`;
+        timeLeftEl.style.color = '#15803d'; // Green
+        tracker.style.background = '#f0fdf4';
+        tracker.style.borderColor = '#bbf7d0';
+        statusTextEl.innerText = 'Estimated time remaining';
+        statusTextEl.style.color = '#166534';
+    } else if (remainingMs > 0 && remainingMs <= 60000) {
+        // Less than 1 minute
+        timeLeftEl.innerText = '<1m';
+        timeLeftEl.style.color = '#15803d';
+        tracker.style.background = '#f0fdf4';
+        tracker.style.borderColor = '#bbf7d0';
+        statusTextEl.innerText = 'Almost ready!';
+        statusTextEl.style.color = '#166534';
+    } else {
+        // Overdue
+        const localTargetString = targetTime.toLocaleTimeString('en-IN', { hour: 'numeric', minute: '2-digit', hour12: true });
+        timeLeftEl.innerText = 'Delayed';
+        timeLeftEl.style.color = '#b91c1c'; // Red
+        tracker.style.background = '#fef2f2';
+        tracker.style.borderColor = '#fecaca';
+        statusTextEl.innerText = `Taking longer than expected. Supposed to be served at ${localTargetString}.`;
+        statusTextEl.style.color = '#991b1b';
+    }
+}
+
 async function fetchMyOrders() {
     const rollNo = localStorage.getItem('userRollNo');
     if (!rollNo) {
@@ -541,6 +647,11 @@ async function fetchMyOrders() {
     }
 
     try {
+        // Show skeletons if we don't have cached data yet
+        if (!completedBootstrapDone) {
+            showOrderSkeletons();
+        }
+        
         const data = await fetchJson(`${BASE_URL}/my_orders?roll_no=${encodeURIComponent(rollNo)}`);
 
         const activeItems = Array.isArray(data.active) ? data.active : [];
@@ -621,6 +732,7 @@ async function fetchMyOrders() {
         }
 
         updateButtonStates();
+        updateLiveOrderTracker();
     } catch (e) {
         myActiveShops.clear();
         updateButtonStates();

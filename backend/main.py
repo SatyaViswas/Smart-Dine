@@ -61,8 +61,29 @@ def get_status(shop: str):
         occupied_seats = c.fetchone()[0]
         available_seats = max(0, 120 - occupied_seats)
 
+        # Calculate velocity over the last 15 minutes
+        fifteen_mins_ago = datetime.now(timezone.utc) - timedelta(minutes=15)
+
+        # How many joined recently?
+        c.execute("SELECT COUNT(*) as joined_count FROM active_queue WHERE shop = %s AND time_in >= %s", (shop, fifteen_mins_ago))
+        res = c.fetchone()
+        joined_recent = res[0] if isinstance(res, tuple) else res.get('joined_count', 0)
+
+        # How many were served recently?
+        c.execute("SELECT COUNT(*) as served_count FROM history_log WHERE shop = %s AND time_served >= %s", (shop, fifteen_mins_ago))
+        res = c.fetchone()
+        served_recent = res[0] if isinstance(res, tuple) else res.get('served_count', 0)
+
+        # Determine the trend
+        if joined_recent > (served_recent + 1):
+            trend = "up"
+        elif served_recent > (joined_recent + 1):
+            trend = "down"
+        else:
+            trend = "stable"
+
         traffic = "High" if queue >= 15 else "Medium" if queue >= 7 else "Low"
-        return {"queue": queue, "wait": round((queue * avg_speed) / 60), "seats": available_seats, "traffic": traffic, "avg_speed_seconds": int(avg_speed)}
+        return {"queue": queue, "wait": round((queue * avg_speed) / 60), "seats": available_seats, "traffic": traffic, "avg_speed_seconds": int(avg_speed), "trend": trend}
     finally:
         release_db_connection(conn)
 
@@ -163,7 +184,7 @@ def get_my_orders(roll_no: str):
         # Convert that midnight strictly to UTC for the database
         start_of_today_utc = start_of_today_ist.astimezone(timezone.utc)
 
-        c.execute("SELECT shop, time_in FROM active_queue WHERE roll_no = %s ORDER BY time_in DESC", (clean_roll_no,))
+        c.execute("SELECT shop, time_in, expected_wait_seconds FROM active_queue WHERE roll_no = %s ORDER BY time_in DESC", (clean_roll_no,))
         active = []
         for r in c.fetchall():
             order_dict = {"shop": r[0], "time_in": None}
@@ -171,6 +192,10 @@ def get_my_orders(roll_no: str):
                 time_utc = r[1].replace(tzinfo=timezone.utc)
                 time_ist = time_utc.astimezone(IST)
                 order_dict["time_in"] = time_ist.strftime('%I:%M %p')
+                order_dict["time_in_raw"] = time_utc.isoformat() if time_utc else None
+            else:
+                order_dict["time_in_raw"] = None
+            order_dict["expected_wait_seconds"] = r[2] if len(r) > 2 else 0
             active.append(order_dict)
 
         c.execute('''SELECT shop, time_served 
