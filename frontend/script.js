@@ -3,7 +3,7 @@ lucide.createIcons();
 
 // --- STATE MANAGEMENT ---
 const API_HOST = window.location.hostname || '127.0.0.1';
-const BASE_URL = `https://founded-annotated-bluetooth-robot.trycloudflare.com/api`;
+const BASE_URL = `https://points-earliest-perspectives-tied.trycloudflare.com/api`;
 
 // --- AUTHENTICATION LOGIC (LOGIN & SIGNUP) ---
 const authScreen = document.getElementById('auth-screen');
@@ -440,7 +440,8 @@ function renderShopChrome(shop) {
 function renderDashboardData(shop, data) {
     const avgSpeedSeconds = Number.isFinite(data.avg_speed_seconds) ? Math.max(0, data.avg_speed_seconds) : 0;
     const formattedAvgSpeed = formatWaitTime(avgSpeedSeconds);
-    const rawWaitSeconds = Number.isFinite(data.queue) ? Math.max(0, data.queue) * avgSpeedSeconds : 0;
+    // Calculate time for current queue PLUS the user's own order
+    const rawWaitSeconds = Number.isFinite(data.queue) ? (Math.max(0, data.queue) + 1) * avgSpeedSeconds : avgSpeedSeconds;
 
     document.getElementById('queue-val').textContent = data.queue;
     const waitValueEl = document.getElementById('wait-val');
@@ -886,8 +887,21 @@ async function renderOrders() {
         }
 
         grid.innerHTML = orders.map(order => {
+            let urgencyClass = '';
+            if (order.time_in_raw && order.expected_wait_seconds) {
+                const orderTime = new Date(order.time_in_raw);
+                const elapsedMs = Date.now() - orderTime;
+
+                const promisedWaitMs = order.expected_wait_seconds * 1000;
+
+                if (elapsedMs >= (promisedWaitMs * 3)) {
+                    urgencyClass = 'urgent';
+                } else if (elapsedMs >= (promisedWaitMs * 1.5)) {
+                    urgencyClass = 'warning';
+                }
+            }
             return `
-            <div class="glass-card order-card fade-in" id="card-${order.id}">
+            <div class="glass-card order-card fade-in ${urgencyClass}" id="card-${order.id}">
                 <div class="order-top"><span class="order-id">ORD-${order.id}</span><span>${order.time_in || '--'}</span></div>
                 <div class="order-detail">UID: ${order.uid}</div>
                 <div class="order-items">Shop: ${order.shop}</div>

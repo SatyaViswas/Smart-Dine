@@ -72,28 +72,43 @@ def join_queue(req: CheckInReq):
     conn = None
     try:
         conn = get_db_connection()
-        c = conn.cursor()
+        c = conn.cursor(cursor_factory=RealDictCursor)
         clean_roll_no = req.roll_no.strip().upper()
 
         c.execute("SELECT is_active FROM shop_settings WHERE shop = %s", (req.shop,))
         is_active_row = c.fetchone()
         if is_active_row is not None:
-            is_active = is_active_row[0]
+            is_active = is_active_row["is_active"]
             if not is_active:
                 return JSONResponse(status_code=400, content={"error": f"The {req.shop} station is currently paused."})
 
         c.execute("SELECT COUNT(*) FROM active_queue WHERE roll_no = %s AND shop = %s", (clean_roll_no, req.shop))
-        existing_count = c.fetchone()[0]
+        existing_count = c.fetchone()["count"]
         if existing_count > 0:
             return JSONResponse(
                 status_code=400,
                 content={"error": "You already have an active order in this section. Please wait until it is served."}
             )
 
+        # 1. Get current queue length safely (handles both dict and tuple cursors)
+        c.execute("SELECT COUNT(*) as count FROM active_queue WHERE shop = %s", (req.shop,))
+        queue_res = c.fetchone()
+        queue_len = int(queue_res['count'] if isinstance(queue_res, dict) else queue_res[0])
+
+        # 2. Get current average speed safely
+        c.execute("SELECT AVG(service_duration) as avg_speed FROM (SELECT service_duration FROM history_log WHERE shop = %s AND service_duration > 0 ORDER BY id DESC LIMIT 10) AS sub", (req.shop,))
+        avg_res = c.fetchone()
+        avg_val = avg_res['avg_speed'] if isinstance(avg_res, dict) else avg_res[0]
+        avg_speed = float(avg_val) if avg_val else 60.0
+
+        # 3. Calculate this specific student's wait time dynamically
+        # (queue_len + 1) because the student clicking the button is joining the line
+        expected_wait_seconds = (queue_len + 1) * avg_speed
+
         exact_time_in = datetime.now(timezone.utc)
         c.execute(
-            "INSERT INTO active_queue (uid, roll_no, shop, time_in) VALUES (%s, %s, %s, %s)",
-            (clean_roll_no, clean_roll_no, req.shop, exact_time_in)
+            "INSERT INTO active_queue (roll_no, shop, time_in, expected_wait_seconds) VALUES (%s, %s, %s, %s)",
+            (clean_roll_no, req.shop, exact_time_in, expected_wait_seconds)
         )
         conn.commit()
         return {"status": "success"}
@@ -206,8 +221,8 @@ def scan_checkin(req: ScanCheckInReq):
             )
 
         c.execute(
-            "INSERT INTO active_queue (uid, roll_no, shop, time_in) VALUES (%s, %s, %s, %s)",
-            (clean_roll_no, clean_roll_no, req.shop, datetime.now(timezone.utc))
+            "INSERT INTO active_queue (roll_no, shop, time_in) VALUES (%s, %s, %s)",
+            (clean_roll_no, req.shop, datetime.now(timezone.utc))
         )
         conn.commit()
     except Exception:
@@ -225,15 +240,19 @@ def get_orders(shop: str):
     conn = None
     try:
         conn = get_db_connection()
-        c = conn.cursor()
-        c.execute("SELECT id, COALESCE(uid, roll_no), shop, time_in FROM active_queue WHERE shop = %s ORDER BY time_in ASC", (shop,))
+        c = conn.cursor(cursor_factory=RealDictCursor)
+        c.execute("SELECT id, roll_no, shop, time_in, expected_wait_seconds FROM active_queue WHERE shop = %s ORDER BY time_in ASC", (shop,))
         orders = []
-        for r in c.fetchall():
-            order_dict = {"id": r[0], "uid": r[1], "shop": r[2], "time_in": None}
-            if r[3]:
-                time_utc = r[3].replace(tzinfo=timezone.utc)
+        for row in c.fetchall():
+            order_dict = {"id": row["id"], "uid": row["roll_no"], "shop": row["shop"], "time_in": None}
+            if row["time_in"]:
+                time_utc = row["time_in"].replace(tzinfo=timezone.utc)
                 time_ist = time_utc.astimezone(IST)
                 order_dict["time_in"] = time_ist.strftime('%I:%M %p')
+                order_dict["time_in_raw"] = time_utc.isoformat() if time_utc else None
+            else:
+                order_dict["time_in_raw"] = None
+            order_dict["expected_wait_seconds"] = row.get("expected_wait_seconds", 120)
             orders.append(order_dict)
         return orders
     finally:
@@ -246,7 +265,7 @@ def serve_order(order_id: int):
         conn = get_db_connection()
         c = conn.cursor()
 
-        c.execute("SELECT COALESCE(roll_no, uid), shop, time_in FROM active_queue WHERE id=%s", (order_id,))
+        c.execute("SELECT roll_no, shop, time_in FROM active_queue WHERE id=%s", (order_id,))
         order = c.fetchone()
         if order:
             time_served = datetime.now(timezone.utc)

@@ -21,9 +21,16 @@ def initialize_cloud_database():
     
     # 1. Create Tables (Notice 'SERIAL' instead of 'AUTOINCREMENT' for Postgres)
     c.execute('''CREATE TABLE IF NOT EXISTS active_queue 
-                 (id SERIAL PRIMARY KEY, uid TEXT, roll_no TEXT, shop TEXT, time_in TIMESTAMP)''')
+                 (id SERIAL PRIMARY KEY, roll_no TEXT, shop TEXT, time_in TIMESTAMP, expected_wait_seconds REAL)''')
     c.execute('''ALTER TABLE active_queue ADD COLUMN IF NOT EXISTS roll_no TEXT''')
-    c.execute('''UPDATE active_queue SET roll_no = uid WHERE roll_no IS NULL AND uid IS NOT NULL''')
+    c.execute('''ALTER TABLE active_queue ADD COLUMN IF NOT EXISTS expected_wait_seconds REAL''')
+    c.execute('''
+        SELECT 1
+        FROM information_schema.columns
+        WHERE table_schema = 'public' AND table_name = 'active_queue' AND column_name = 'uid'
+    ''')
+    if c.fetchone():
+        c.execute('''UPDATE active_queue SET roll_no = uid WHERE roll_no IS NULL AND uid IS NOT NULL''')
 
     # Migrate legacy epoch-based time_in values to TIMESTAMP.
     c.execute('''
