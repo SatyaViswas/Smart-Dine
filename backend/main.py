@@ -42,6 +42,12 @@ def validate_shop(shop: str):
     if shop not in VALID_SHOPS:
         raise HTTPException(status_code=400, detail="Invalid shop selected.")
 
+def purge_ghost_orders(cursor, conn):
+    """Delete any active order older than 2 hours (120 minutes)."""
+    ghost_time_limit = datetime.now(timezone.utc) - timedelta(hours=2)
+    cursor.execute("DELETE FROM active_queue WHERE time_in < %s", (ghost_time_limit,))
+    conn.commit()
+
 @app.get("/api/status")
 def get_status(shop: str):
     validate_shop(shop)
@@ -49,6 +55,9 @@ def get_status(shop: str):
     try:
         conn = get_db_connection()
         c = conn.cursor()
+
+        # Clean up ghost orders before calculating queue status
+        purge_ghost_orders(c, conn)
 
         c.execute("SELECT COUNT(*) FROM active_queue WHERE shop=%s", (shop,))
         queue = c.fetchone()[0]
@@ -103,13 +112,13 @@ def join_queue(req: CheckInReq):
             if not is_active:
                 return JSONResponse(status_code=400, content={"error": f"The {req.shop} station is currently paused."})
 
-        c.execute("SELECT COUNT(*) FROM active_queue WHERE roll_no = %s AND shop = %s", (clean_roll_no, req.shop))
-        existing_count = c.fetchone()["count"]
-        if existing_count > 0:
-            return JSONResponse(
-                status_code=400,
-                content={"error": "You already have an active order in this section. Please wait until it is served."}
-            )
+        # Check for existing active order
+        c.execute("SELECT COUNT(*) as count FROM active_queue WHERE roll_no = %s AND shop = %s", (clean_roll_no, req.shop))
+        is_in_queue = c.fetchone()
+        count = is_in_queue['count'] if isinstance(is_in_queue, dict) else is_in_queue[0]
+
+        if count > 0:
+            return JSONResponse(status_code=400, content={"error": f"You are already in the {req.shop} queue."})
 
         # 1. Get current queue length safely (handles both dict and tuple cursors)
         c.execute("SELECT COUNT(*) as count FROM active_queue WHERE shop = %s", (req.shop,))
@@ -236,14 +245,13 @@ def scan_checkin(req: ScanCheckInReq):
         if not c.fetchone():
             c.execute("INSERT INTO students (roll_no) VALUES (%s)", (clean_roll_no,))
 
-        # Avoid duplicate active orders for the same student and shop.
-        c.execute("SELECT COUNT(*) FROM active_queue WHERE roll_no = %s AND shop = %s", (clean_roll_no, req.shop))
-        existing_count = c.fetchone()[0]
-        if existing_count > 0:
-            return JSONResponse(
-                status_code=400,
-                content={"error": "This roll number already has an active order in this section."}
-            )
+        # Check for existing active order
+        c.execute("SELECT COUNT(*) as count FROM active_queue WHERE roll_no = %s AND shop = %s", (clean_roll_no, req.shop))
+        is_in_queue = c.fetchone()
+        count = is_in_queue['count'] if isinstance(is_in_queue, dict) else is_in_queue[0]
+
+        if count > 0:
+            return JSONResponse(status_code=400, content={"error": f"You are already in the {req.shop} queue."})
 
         c.execute(
             "INSERT INTO active_queue (roll_no, shop, time_in) VALUES (%s, %s, %s)",
@@ -266,6 +274,10 @@ def get_orders(shop: str):
     try:
         conn = get_db_connection()
         c = conn.cursor(cursor_factory=RealDictCursor)
+        
+        # Clean up ghost orders before fetching KDS list
+        purge_ghost_orders(c, conn)
+        
         c.execute("SELECT id, roll_no, shop, time_in, expected_wait_seconds FROM active_queue WHERE shop = %s ORDER BY time_in ASC", (shop,))
         orders = []
         for row in c.fetchall():
