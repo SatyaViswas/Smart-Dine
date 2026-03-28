@@ -80,6 +80,34 @@ def initialize_cloud_database():
 
     c.execute('''CREATE TABLE IF NOT EXISTS shop_settings (shop TEXT PRIMARY KEY, is_active BOOLEAN)''')
 
+    # --- Master Menu Table ---
+    c.execute('''CREATE TABLE IF NOT EXISTS menu_items (
+        id SERIAL PRIMARY KEY,
+        shop TEXT NOT NULL,
+        item_name TEXT NOT NULL,
+        price INT NOT NULL,
+        is_available BOOLEAN DEFAULT TRUE
+    )''')
+
+    # Seed sample menu items for Meals and Beverages (only if no items exist)
+    c.execute("SELECT COUNT(*) FROM menu_items")
+    if c.fetchone()[0] == 0:
+        sample_items = [
+            ("Meals", "Dal Rice", 35, True),
+            ("Meals", "Curd Rice", 30, True),
+            ("Meals", "Veg Biryani", 55, True),
+            ("Meals", "Roti + Sabzi", 40, True),
+            ("Beverages", "Masala Tea", 15, True),
+            ("Beverages", "Filter Coffee", 20, True),
+            ("Beverages", "Lemon Juice", 25, True),
+            ("Beverages", "Buttermilk", 18, True),
+        ]
+        for shop, item_name, price, is_available in sample_items:
+            c.execute(
+                "INSERT INTO menu_items (shop, item_name, price, is_available) VALUES (%s, %s, %s, %s)",
+                (shop, item_name, price, is_available)
+            )
+
     shops = ["Meals", "Snacks", "Beverages"]
     for s in shops:
         c.execute("INSERT INTO shop_settings (shop, is_active) VALUES (%s, TRUE) ON CONFLICT (shop) DO NOTHING", (s,))

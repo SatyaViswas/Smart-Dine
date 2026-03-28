@@ -142,6 +142,12 @@
                         </div>
                         <div id="reader" style="display: none; margin-top: 1rem;"></div>
                     </div>
+
+                    <!-- Student Live Menu -->
+                    <div id="student-menu-container" style="display: none;">
+                        <h4><i data-lucide="utensils" style="width:13px;height:13px;vertical-align:middle;margin-right:4px;"></i> Today's Menu</h4>
+                        <div class="menu-item-grid" id="student-menu-grid"></div>
+                    </div>
                 </div>
             </section>
 
@@ -300,6 +306,40 @@
 
                     <div class="kds-grid slide-up" id="kds-grid" style="animation-delay: 0.2s;">
                         </div>
+
+                    <!-- Manage Menu Section (shown only for Meals & Beverages staff) -->
+                    <div id="manage-menu-section" class="glass-card slide-up" style="display: none; animation-delay: 0.3s;">
+                        <h3>
+                            <i data-lucide="book-open" style="width:18px;height:18px;"></i>
+                            Manage Menu
+                        </h3>
+
+                        <!-- Add Item Form -->
+                        <div class="menu-add-form">
+                            <input type="text" id="menu-item-name" class="form-input" placeholder="Item name (e.g. Dal Rice)" maxlength="80">
+                            <input type="number" id="menu-item-price" class="form-input" placeholder="Price (₹)" min="0" max="9999" style="max-width: 130px;">
+                            <button class="btn-primary" id="menu-add-btn" style="padding: 0.75rem 1.25rem;">
+                                <i data-lucide="plus" style="width:16px;height:16px;"></i> Add Item
+                            </button>
+                        </div>
+
+                        <!-- Menu Items Table -->
+                        <div id="menu-items-table">
+                            <table class="menu-table">
+                                <thead>
+                                    <tr>
+                                        <th>Item</th>
+                                        <th>Price</th>
+                                        <th>Available</th>
+                                        <th></th>
+                                    </tr>
+                                </thead>
+                                <tbody id="menu-items-tbody">
+                                    <tr><td colspan="4" style="color: var(--sd-text-muted); text-align:center; padding: 1.5rem;">Loading menu...</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
                 </div>
             </section>
         </main>

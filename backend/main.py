@@ -105,7 +105,9 @@ async def whatsapp_webhook(From: str = Form(...), Body: str = Form(...)):
                 "5. 'seats' - View live seat availability\n"
                 "6. 'traffic' - View campus crowd status\n"
                 "7. 'predict [shop] [DD-MM] [HH:MM] [AM/PM]' - AI predictions\n"
-                "8. 'stats [shop]' - View status (shows if closed)"
+                "8. 'stats [shop]' - View status (shows if closed)\n"
+                "9. 'menu meals' - See what's cooking 🍱\n"
+                "10. 'menu beverages' - See available drinks ☕"
             )
         elif incoming_msg == "status":
             c.execute("SELECT shop, expected_wait_seconds FROM active_queue WHERE roll_no = %s", (roll_no,))
@@ -135,6 +137,36 @@ async def whatsapp_webhook(From: str = Form(...), Body: str = Form(...)):
             queue = int(queue_res["count"] if isinstance(queue_res, dict) else queue_res[0])
             traffic = "High" if queue >= 15 else "Medium" if queue >= 7 else "Low"
             msg.body(f"🚦 Campus traffic status: *{traffic}* (active queue: {queue}).")
+        elif incoming_msg.startswith("menu "):
+            # --- MASTER MENU COMMAND: 'menu meals' / 'menu beverages' / 'menu snacks' ---
+            parts = incoming_msg.split()
+            if len(parts) != 2 or parts[1] not in ["meals", "snacks", "beverages"]:
+                msg.body("⚠️ Invalid format. Try: 'menu meals', 'menu beverages', or 'menu snacks'.")
+            elif parts[1] == "snacks":
+                msg.body("🥨 The Snacks menu is available at the counter.")
+            else:
+                shop = parts[1].capitalize()
+                shop_emoji = "🍱" if shop == "Meals" else "☕"
+                try:
+                    c.execute(
+                        "SELECT item_name, price, is_available FROM menu_items WHERE shop = %s ORDER BY id ASC",
+                        (shop,)
+                    )
+                    menu_rows = c.fetchall()
+                    if not menu_rows:
+                        msg.body("⚠️ Menu is being updated by staff. Please try again in a moment!")
+                    else:
+                        lines = [f"{shop_emoji} *Today's {shop} Menu*"]
+                        for row in menu_rows:
+                            if isinstance(row, dict):
+                                name, price, available = row["item_name"], row["price"], row["is_available"]
+                            else:
+                                name, price, available = row[0], row[1], row[2]
+                            status = "✅ Available" if available else "❌ Sold Out"
+                            lines.append(f"• {name} - ₹{price} ({status})")
+                        msg.body("\n".join(lines))
+                except Exception:
+                    msg.body("⚠️ Menu is being updated by staff. Please try again in a moment!")
         elif incoming_msg.startswith("stats"):
             parts = incoming_msg.split()
             if len(parts) != 2:
@@ -174,11 +206,37 @@ async def whatsapp_webhook(From: str = Form(...), Body: str = Form(...)):
                 else:
                     speed_status = "Busy"
 
+                # Fetch up to 3 available items for the menu preview
+                menu_preview = ""
+                if shop != "Snacks":
+                    try:
+                        c.execute(
+                            "SELECT item_name, price FROM menu_items WHERE shop = %s AND is_available = TRUE ORDER BY id ASC LIMIT 3",
+                            (shop,)
+                        )
+                        preview_rows = c.fetchall()
+                        if preview_rows:
+                            preview_lines = []
+                            for row in preview_rows:
+                                if isinstance(row, dict):
+                                    pname, pprice = row["item_name"], row["price"]
+                                else:
+                                    pname, pprice = row[0], row[1]
+                                preview_lines.append(f"  • {pname} - ₹{pprice}")
+                            menu_preview = (
+                                "\n\n🍴 *Available Now:*\n"
+                                + "\n".join(preview_lines)
+                                + f"\nType 'menu {shop.lower()}' to see the full menu."
+                            )
+                    except Exception:
+                        pass  # menu preview is non-critical; silently skip on error
+
                 msg.body(
                     f"📍 *Live {shop} Status*\n"
                     f"👥 People in line: {queue_count}\n"
                     f"⏳ Estimated wait: {est_wait_mins} minutes\n"
                     f"🚀 Kitchen Speed: {speed_status}"
+                    + menu_preview
                 )
         elif incoming_msg.startswith("predict"):
             parts = incoming_msg.split()
@@ -707,5 +765,115 @@ def staff_login(req: StaffLoginReq):
         if row and row[1] == hashlib.sha256(req.password.encode()).hexdigest():
             return {"success": True, "shop": row[0]}
         raise HTTPException(status_code=401, detail="Invalid email or password.")
+    finally:
+        release_db_connection(conn)
+
+
+# ─────────────────────────────────────────────────────────
+# MASTER MENU — endpoints
+# ─────────────────────────────────────────────────────────
+
+class MenuItemReq(BaseModel):
+    shop: str
+    item_name: str
+    price: int
+
+
+@app.get("/api/menu")
+def get_menu(shop: str):
+    """Return all menu items for the given shop, ordered by id."""
+    validate_shop(shop)
+    conn = None
+    try:
+        conn = get_db_connection()
+        c = conn.cursor(cursor_factory=RealDictCursor)
+        c.execute(
+            "SELECT id, shop, item_name, price, is_available FROM menu_items WHERE shop = %s ORDER BY id ASC",
+            (shop,),
+        )
+        return c.fetchall()
+    finally:
+        release_db_connection(conn)
+
+
+@app.post("/api/admin/menu/add")
+def add_menu_item(req: MenuItemReq):
+    """Add a new item to the menu for the given shop."""
+    validate_shop(req.shop)
+    if not req.item_name.strip():
+        raise HTTPException(status_code=400, detail="Item name cannot be empty.")
+    if req.price < 0:
+        raise HTTPException(status_code=400, detail="Price cannot be negative.")
+    conn = None
+    try:
+        conn = get_db_connection()
+        c = conn.cursor(cursor_factory=RealDictCursor)
+        c.execute(
+            "INSERT INTO menu_items (shop, item_name, price, is_available) VALUES (%s, %s, %s, TRUE) RETURNING id, shop, item_name, price, is_available",
+            (req.shop, req.item_name.strip(), req.price),
+        )
+        new_item = c.fetchone()
+        conn.commit()
+        return new_item
+    except Exception:
+        if conn:
+            conn.rollback()
+        raise HTTPException(status_code=500, detail="Failed to add menu item.")
+    finally:
+        release_db_connection(conn)
+
+
+@app.patch("/api/admin/menu/toggle/{item_id}")
+def toggle_menu_item(item_id: int):
+    """Toggle the is_available boolean for a specific menu item."""
+    conn = None
+    try:
+        conn = get_db_connection()
+        c = conn.cursor(cursor_factory=RealDictCursor)
+        c.execute("SELECT is_available FROM menu_items WHERE id = %s", (item_id,))
+        row = c.fetchone()
+        if not row:
+            raise HTTPException(status_code=404, detail="Menu item not found.")
+        new_state = not row["is_available"]
+        c.execute(
+            "UPDATE menu_items SET is_available = %s WHERE id = %s RETURNING id, shop, item_name, price, is_available",
+            (new_state, item_id),
+        )
+        updated = c.fetchone()
+        conn.commit()
+        return updated
+    except HTTPException:
+        if conn:
+            conn.rollback()
+        raise
+    except Exception:
+        if conn:
+            conn.rollback()
+        raise HTTPException(status_code=500, detail="Failed to toggle menu item.")
+    finally:
+        release_db_connection(conn)
+
+
+@app.delete("/api/admin/menu/{item_id}")
+def delete_menu_item(item_id: int):
+    """Permanently remove a menu item."""
+    conn = None
+    try:
+        conn = get_db_connection()
+        c = conn.cursor()
+        c.execute("SELECT id FROM menu_items WHERE id = %s", (item_id,))
+        if not c.fetchone():
+            raise HTTPException(status_code=404, detail="Menu item not found.")
+        c.execute("DELETE FROM menu_items WHERE id = %s", (item_id,))
+        conn.commit()
+        return {"success": True, "deleted_id": item_id}
+    except HTTPException:
+        if conn:
+            conn.rollback()
+        raise
+    except Exception:
+        if conn:
+            conn.rollback()
+        raise HTTPException(status_code=500, detail="Failed to delete menu item.")
     finally:
         release_db_connection(conn)

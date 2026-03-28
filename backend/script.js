@@ -176,6 +176,17 @@ function completeLogin(role, identifier) {
         document.getElementById('kds').style.display       = 'block';
         const assignedShop = localStorage.getItem('staffShop') || 'Meals';
         document.getElementById('kds-shop-title').innerText = `${assignedShop} KDS`;
+
+        // Show Manage Menu section only for Meals and Beverages
+        const menuSection = document.getElementById('manage-menu-section');
+        if (menuSection) {
+            if (assignedShop === 'Meals' || assignedShop === 'Beverages') {
+                menuSection.style.display = 'block';
+                loadMenuItems(assignedShop);
+            } else {
+                menuSection.style.display = 'none';
+            }
+        }
     } else {
         navBar.style.display = 'flex';
         document.getElementById('dashboard').style.display = 'block';
@@ -404,6 +415,9 @@ shopTabs.forEach(tab => {
         updateDashboardUI({ shop: currentShop, silent: true });
         fetchMyOrders();
         updateLiveOrderTracker();
+
+        // 5) Fetch live menu for this shop (Meals/Beverages only)
+        fetchStudentMenu(currentShop);
     });
 });
 
@@ -1248,3 +1262,181 @@ setInterval(() => {
         }
     }
 }, 5000);
+
+// ─────────────────────────────────────────────────────────
+// MASTER MENU — Staff KDS functions
+// ─────────────────────────────────────────────────────────
+
+/**
+ * Load and render the menu items table in the KDS Manage Menu section.
+ * @param {string} shop - The staff's assigned shop (Meals or Beverages)
+ */
+async function loadMenuItems(shop) {
+    const tbody = document.getElementById('menu-items-tbody');
+    if (!tbody) return;
+    tbody.innerHTML = `<tr><td colspan="4" style="color: var(--sd-text-muted); text-align:center; padding: 1.5rem;">Loading...</td></tr>`;
+    try {
+        const items = await fetchJson(`${BASE_URL}/menu?shop=${encodeURIComponent(shop)}`);
+        if (!items || items.length === 0) {
+            tbody.innerHTML = `<tr><td colspan="4" style="color: var(--sd-text-muted); text-align:center; padding: 1.5rem;">No items yet. Add one above!</td></tr>`;
+            return;
+        }
+        tbody.innerHTML = items.map(item => `
+            <tr id="menu-row-${item.id}">
+                <td style="font-weight: 600;">${escapeHtml(item.item_name)}</td>
+                <td>&#8377;${item.price}</td>
+                <td>
+                    <label class="toggle-switch" title="${item.is_available ? 'Mark Sold Out' : 'Mark Available'}">
+                        <input type="checkbox" ${item.is_available ? 'checked' : ''}
+                               onchange="toggleMenuItem(${item.id})">
+                        <span class="toggle-slider"></span>
+                    </label>
+                </td>
+                <td>
+                    <button class="menu-delete-btn" onclick="deleteMenuItem(${item.id}, '${escapeHtml(item.item_name)}')" title="Delete item">
+                        &#128465;
+                    </button>
+                </td>
+            </tr>
+        `).join('');
+    } catch (e) {
+        if (tbody) tbody.innerHTML = `<tr><td colspan="4" style="color: var(--sd-danger); text-align:center;">Failed to load menu.</td></tr>`;
+        console.error('loadMenuItems error:', e);
+    }
+}
+
+/**
+ * Add a new menu item via the Add Item form in the KDS section.
+ */
+async function addMenuItem() {
+    const nameEl  = document.getElementById('menu-item-name');
+    const priceEl = document.getElementById('menu-item-price');
+    const btn     = document.getElementById('menu-add-btn');
+    if (!nameEl || !priceEl || !btn) return;
+
+    const name  = nameEl.value.trim();
+    const price = parseInt(priceEl.value, 10);
+    const shop  = localStorage.getItem('staffShop');
+
+    if (!name)            { showToast('Please enter an item name.', 'error'); return; }
+    if (isNaN(price) || price < 0) { showToast('Please enter a valid price.', 'error'); return; }
+    if (!shop)            { showToast('No shop assigned.', 'error'); return; }
+
+    const originalHTML = btn.innerHTML;
+    btn.innerHTML = '<i data-lucide="loader" style="width:16px;height:16px;"></i> Adding...';
+    btn.disabled = true;
+    lucide.createIcons();
+
+    try {
+        await fetchJson(`${BASE_URL}/admin/menu/add`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ shop, item_name: name, price })
+        });
+        nameEl.value  = '';
+        priceEl.value = '';
+        await loadMenuItems(shop);
+        showToast(`"${name}" added to the menu!`);
+    } catch (e) {
+        showToast('Failed to add item. Try again.', 'error');
+        console.error('addMenuItem error:', e);
+    } finally {
+        btn.innerHTML = originalHTML;
+        btn.disabled  = false;
+        lucide.createIcons();
+    }
+}
+
+/**
+ * Toggle the availability of a menu item (called from inline onchange).
+ * @param {number} itemId
+ */
+window.toggleMenuItem = async function(itemId) {
+    const shop = localStorage.getItem('staffShop');
+    try {
+        await fetchJson(`${BASE_URL}/admin/menu/toggle/${itemId}`, { method: 'PATCH' });
+        if (shop) await loadMenuItems(shop);
+    } catch (e) {
+        showToast('Failed to update availability.', 'error');
+        if (shop) await loadMenuItems(shop); // reload to restore correct checkbox state
+        console.error('toggleMenuItem error:', e);
+    }
+};
+
+/**
+ * Permanently delete a menu item after confirmation.
+ * @param {number} itemId
+ * @param {string} itemName
+ */
+window.deleteMenuItem = async function(itemId, itemName) {
+    if (!confirm(`Delete "${itemName}" from the menu? This cannot be undone.`)) return;
+    const shop = localStorage.getItem('staffShop');
+    try {
+        await fetchJson(`${BASE_URL}/admin/menu/${itemId}`, { method: 'DELETE' });
+        if (shop) await loadMenuItems(shop);
+        showToast(`"${itemName}" removed from the menu.`);
+    } catch (e) {
+        showToast('Failed to delete item.', 'error');
+        console.error('deleteMenuItem error:', e);
+    }
+};
+
+// Wire up the Add Item button
+const menuAddBtn = document.getElementById('menu-add-btn');
+if (menuAddBtn) {
+    menuAddBtn.addEventListener('click', addMenuItem);
+}
+
+// Helper: escape HTML to prevent XSS in dynamically built strings
+function escapeHtml(str) {
+    const div = document.createElement('div');
+    div.appendChild(document.createTextNode(String(str)));
+    return div.innerHTML;
+}
+
+// ─────────────────────────────────────────────────────────
+// MASTER MENU — Student Dashboard menu display
+// ─────────────────────────────────────────────────────────
+
+/**
+ * Fetch the menu for `shop` and render it in the student dashboard.
+ * Hides the container entirely for Snacks or when no items exist.
+ * @param {string} shop
+ */
+async function fetchStudentMenu(shop) {
+    const container = document.getElementById('student-menu-container');
+    const grid      = document.getElementById('student-menu-grid');
+    if (!container || !grid) return;
+
+    // Snacks has no master menu
+    if (shop === 'Snacks') {
+        container.style.display = 'none';
+        return;
+    }
+
+    try {
+        const items = await fetchJson(`${BASE_URL}/menu?shop=${encodeURIComponent(shop)}`);
+        if (!items || items.length === 0) {
+            container.style.display = 'none';
+            return;
+        }
+        grid.innerHTML = items.map(item => {
+            const badgeClass = item.is_available ? 'badge-available' : 'badge-sold-out';
+            const badgeText  = item.is_available ? '✔ Available'    : '✖ Sold Out';
+            return `
+                <div class="menu-item-pill">
+                    <span class="item-name">${escapeHtml(item.item_name)}</span>
+                    <span class="item-price">&#8377;${item.price}</span>
+                    <span class="${badgeClass}">${badgeText}</span>
+                </div>
+            `;
+        }).join('');
+        container.style.display = 'block';
+    } catch (e) {
+        container.style.display = 'none';
+        console.error('fetchStudentMenu error:', e);
+    }
+}
+
+// Load the menu on initial page render for the default shop
+fetchStudentMenu(currentShop);

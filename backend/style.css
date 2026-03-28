@@ -379,3 +379,91 @@ body {
     0% { background-position: 200% 0; }
     100% { background-position: -200% 0; }
 }
+
+/* ===== MASTER MENU — SHARED BADGES ===== */
+.badge-available {
+    display: inline-flex; align-items: center; gap: 0.3rem;
+    padding: 0.25rem 0.75rem; border-radius: var(--sd-radius-pill);
+    font-size: 0.78rem; font-weight: 700;
+    background: rgba(16, 185, 129, 0.15); color: #059669;
+    white-space: nowrap;
+}
+.badge-sold-out {
+    display: inline-flex; align-items: center; gap: 0.3rem;
+    padding: 0.25rem 0.75rem; border-radius: var(--sd-radius-pill);
+    font-size: 0.78rem; font-weight: 700;
+    background: rgba(239, 68, 68, 0.15); color: #dc2626;
+    white-space: nowrap;
+}
+
+/* ===== MASTER MENU — KDS Staff Section ===== */
+#manage-menu-section {
+    margin-top: 2rem;
+}
+#manage-menu-section h3 {
+    font-size: 1.1rem; font-weight: 700; margin-bottom: 1.25rem;
+    display: flex; align-items: center; gap: 0.5rem;
+}
+.menu-add-form {
+    display: flex; gap: 0.75rem; flex-wrap: wrap; margin-bottom: 1.5rem;
+}
+.menu-add-form .form-input { flex: 1; min-width: 140px; }
+.menu-add-form button { flex-shrink: 0; }
+
+.menu-table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
+.menu-table th {
+    text-align: left; padding: 0.5rem 0.75rem; font-size: 0.75rem;
+    text-transform: uppercase; letter-spacing: 0.05em;
+    color: var(--sd-text-muted); border-bottom: 1.5px solid rgba(0,0,0,0.06);
+}
+.menu-table td { padding: 0.75rem 0.75rem; border-bottom: 1px solid rgba(0,0,0,0.05); vertical-align: middle; }
+.menu-table tr:last-child td { border-bottom: none; }
+.menu-table tr:hover td { background: rgba(124, 58, 237, 0.04); }
+
+/* Toggle Switch */
+.toggle-switch { position: relative; display: inline-block; width: 44px; height: 24px; flex-shrink: 0; }
+.toggle-switch input { opacity: 0; width: 0; height: 0; }
+.toggle-slider {
+    position: absolute; cursor: pointer; inset: 0;
+    background: #e5e7eb; border-radius: 999px; transition: background 0.25s;
+}
+.toggle-slider::before {
+    content: ''; position: absolute; width: 18px; height: 18px; border-radius: 50%;
+    background: white; top: 3px; left: 3px; transition: transform 0.25s;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+}
+.toggle-switch input:checked + .toggle-slider { background: #10b981; }
+.toggle-switch input:checked + .toggle-slider::before { transform: translateX(20px); }
+
+.menu-delete-btn {
+    background: none; border: none; cursor: pointer; padding: 0.35rem 0.5rem;
+    border-radius: 6px; color: var(--sd-text-muted); font-size: 1rem;
+    transition: background 0.2s, color 0.2s;
+}
+.menu-delete-btn:hover { background: rgba(239,68,68,0.1); color: var(--sd-danger); }
+
+/* ===== MASTER MENU — Student Dashboard ===== */
+#student-menu-container {
+    margin-top: 1.5rem;
+}
+#student-menu-container h4 {
+    font-size: 0.8rem; font-weight: 700; text-transform: uppercase;
+    letter-spacing: 0.06em; color: var(--sd-text-muted); margin-bottom: 0.75rem;
+}
+.menu-item-grid {
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 0.75rem;
+}
+.menu-item-pill {
+    background: white; border: 1px solid rgba(0,0,0,0.07);
+    border-radius: var(--sd-radius-sm); padding: 0.75rem 1rem;
+    display: flex; flex-direction: column; gap: 0.35rem;
+    transition: box-shadow 0.2s;
+}
+.menu-item-pill:hover { box-shadow: 0 4px 14px rgba(100,100,140,0.10); }
+.menu-item-pill .item-name { font-weight: 600; font-size: 0.9rem; color: var(--sd-text-primary); }
+.menu-item-pill .item-price { font-size: 0.8rem; color: var(--sd-text-secondary); }
+
+@media (max-width: 640px) {
+    .menu-add-form { flex-direction: column; }
+    .menu-item-grid { grid-template-columns: 1fr 1fr; }
+}
