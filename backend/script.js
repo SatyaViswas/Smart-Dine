@@ -1422,16 +1422,19 @@ async function fetchStudentMenu(shop) {
         }
         grid.innerHTML = items.map(item => {
             const badgeClass = item.is_available ? 'badge-available' : 'badge-sold-out';
-            const badgeText  = item.is_available ? '✔ Available'    : '✖ Sold Out';
+            const badgeIcon  = item.is_available ? '<i data-lucide="check-circle" style="width:14px;height:14px;"></i>' : '<i data-lucide="x-circle" style="width:14px;height:14px;"></i>';
+            const badgeText  = item.is_available ? 'Available' : 'Sold Out';
             return `
                 <div class="menu-item-pill">
                     <span class="item-name">${escapeHtml(item.item_name)}</span>
-                    <span class="item-price">&#8377;${item.price}</span>
-                    <span class="${badgeClass}">${badgeText}</span>
+                    <span class="item-price">₹${item.price}</span>
+                    <span class="availability-badge ${badgeClass}">${badgeIcon} ${badgeText}</span>
                 </div>
             `;
         }).join('');
         container.style.display = 'block';
+        // Render lucide icons for the newly added menu items
+        lucide.createIcons();
     } catch (e) {
         container.style.display = 'none';
         console.error('fetchStudentMenu error:', e);

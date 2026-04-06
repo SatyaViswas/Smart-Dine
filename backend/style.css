@@ -444,26 +444,102 @@ body {
 
 /* ===== MASTER MENU — Student Dashboard ===== */
 #student-menu-container {
-    margin-top: 1.5rem;
+    margin-top: 2rem;
+    background: var(--sd-glass-bg);
+    backdrop-filter: var(--sd-glass-blur);
+    border: 1px solid var(--sd-glass-border);
+    border-radius: var(--sd-radius);
+    box-shadow: var(--sd-glass-shadow);
+    padding: 1.5rem;
 }
 #student-menu-container h4 {
-    font-size: 0.8rem; font-weight: 700; text-transform: uppercase;
-    letter-spacing: 0.06em; color: var(--sd-text-muted); margin-bottom: 0.75rem;
+    font-size: 0.75rem; font-weight: 800; text-transform: uppercase;
+    letter-spacing: 0.08em; color: var(--sd-text-muted); margin-bottom: 1rem;
+    display: flex; align-items: center; gap: 0.5rem;
+}
+#student-menu-container h4 i {
+    background: var(--sd-accent-gradient);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
 }
 .menu-item-grid {
-    display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 0.75rem;
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 1rem;
 }
 .menu-item-pill {
-    background: white; border: 1px solid rgba(0,0,0,0.07);
-    border-radius: var(--sd-radius-sm); padding: 0.75rem 1rem;
-    display: flex; flex-direction: column; gap: 0.35rem;
-    transition: box-shadow 0.2s;
+    background: linear-gradient(135deg, rgba(255,255,255,0.9), rgba(255,255,255,0.7));
+    border: 1.5px solid var(--sd-glass-border);
+    border-radius: var(--sd-radius-sm);
+    padding: 1rem 1.1rem;
+    display: flex; flex-direction: column; gap: 0.5rem;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    cursor: pointer;
+    position: relative;
+    overflow: hidden;
+    box-shadow: 0 4px 15px rgba(124, 58, 237, 0.08);
 }
-.menu-item-pill:hover { box-shadow: 0 4px 14px rgba(100,100,140,0.10); }
-.menu-item-pill .item-name { font-weight: 600; font-size: 0.9rem; color: var(--sd-text-primary); }
-.menu-item-pill .item-price { font-size: 0.8rem; color: var(--sd-text-secondary); }
+.menu-item-pill::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: var(--sd-accent-gradient);
+    opacity: 0;
+    transition: opacity 0.3s ease;
+    z-index: -1;
+}
+.menu-item-pill:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 8px 24px rgba(124, 58, 237, 0.2);
+    border-color: var(--sd-accent-violet);
+    background: linear-gradient(135deg, rgba(255,255,255,0.95), rgba(255,255,255,0.85));
+}
+.menu-item-pill:hover::before { opacity: 0.05; }
+.menu-item-pill .item-name {
+    font-weight: 700; font-size: 0.95rem; color: var(--sd-text-primary);
+    line-height: 1.3;
+}
+.menu-item-pill .item-price {
+    font-size: 1rem; font-weight: 800;
+    background: var(--sd-accent-gradient);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+}
+.menu-item-pill .availability-badge {
+    font-size: 0.75rem; font-weight: 700;
+    padding: 0.4rem 0.65rem;
+    border-radius: var(--sd-radius-pill);
+    display: inline-flex; align-items: center; gap: 0.4rem;
+    width: fit-content;
+    transition: all 0.2s ease;
+}
+.menu-item-pill .badge-available {
+    background: rgba(16, 185, 129, 0.15);
+    color: #047857;
+    border: 1px solid rgba(16, 185, 129, 0.3);
+}
+.menu-item-pill .badge-available i {
+    width: 14px; height: 14px;
+}
+.menu-item-pill .badge-sold-out {
+    background: rgba(239, 68, 68, 0.12);
+    color: #991b1b;
+    border: 1px solid rgba(239, 68, 68, 0.25);
+    opacity: 0.75;
+}
+.menu-item-pill .badge-sold-out i {
+    width: 14px; height: 14px;
+}
+.menu-item-pill:hover .badge-available {
+    background: rgba(16, 185, 129, 0.2);
+    border-color: rgba(16, 185, 129, 0.5);
+}
+.menu-item-pill:hover .badge-sold-out {
+    opacity: 1;
+}
 
 @media (max-width: 640px) {
     .menu-add-form { flex-direction: column; }
-    .menu-item-grid { grid-template-columns: 1fr 1fr; }
+    .menu-item-grid { grid-template-columns: 1fr 1fr; gap: 0.75rem; }
+    #student-menu-container { padding: 1.25rem; margin-top: 1.5rem; }
 }
