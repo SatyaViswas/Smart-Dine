@@ -4,7 +4,7 @@ lucide.createIcons();
 // --- STATE MANAGEMENT ---
 const API_HOST = window.location.hostname || '127.0.0.1';
 
-const BASE_URL = 'https://smart-dine-oyaw.onrender.com/api';
+const BASE_URL = 'https://smart-dine-vzbp.onrender.com/api';
 // --- AUTHENTICATION LOGIC (LOGIN & SIGNUP) ---
 const authScreen = document.getElementById('auth-screen');
 const appContent = document.getElementById('app-content');
