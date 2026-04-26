@@ -1,57 +1,74 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Smart-Dine Canteen</title>
-    <link rel="stylesheet" href="/static/style.css">
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap"
+        rel="stylesheet">
     <script src="https://unpkg.com/lucide@latest"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
 </head>
+
 <body>
     <div id="root">
-        <div id="auth-screen" class="glass-card" style="position: fixed; inset: 0; z-index: 1000; display: flex; flex-direction: column; align-items: center; justify-content: center; border-radius: 0; background: var(--sd-bg-start);">
-    <div class="glass-card" style="width: 100%; max-width: 400px; text-align: center; padding: 3rem 2rem;">
-        <div class="metric-icon violet" style="margin: 0 auto 1.5rem auto; width: 60px; height: 60px;">
-            <i data-lucide="utensils" style="width: 30px; height: 30px;"></i>
-        </div>
-        
-        <h2 id="auth-title" style="margin-bottom: 0.5rem;">Smart-Dine Login</h2>
-        <p id="auth-subtitle" style="color: var(--sd-text-muted); margin-bottom: 1rem;">Enter your College Roll Number</p>
+        <div id="auth-screen" class="glass-card"
+            style="position: fixed; inset: 0; z-index: 1000; display: flex; flex-direction: column; align-items: center; justify-content: center; border-radius: 0; background: var(--sd-bg-start);">
+            <div class="glass-card" style="width: 100%; max-width: 400px; text-align: center; padding: 3rem 2rem;">
+                <div class="metric-icon violet" style="margin: 0 auto 1.5rem auto; width: 60px; height: 60px;">
+                    <i data-lucide="utensils" style="width: 30px; height: 30px;"></i>
+                </div>
 
-        <div id="role-selector" style="display: flex; gap: 0.75rem; margin-bottom: 1.5rem; background: var(--sd-bg-card); border-radius: 0.75rem; padding: 0.25rem;">
-            <button type="button" id="role-student-btn" style="flex: 1; padding: 0.5rem; border-radius: 0.5rem; border: none; cursor: pointer; font-weight: 600; font-size: 0.85rem; transition: all 0.2s; background: var(--sd-accent-violet); color: #fff;">
-                <i data-lucide="graduation-cap" style="width:13px;height:13px;vertical-align:middle;margin-right:4px;"></i> Student
-            </button>
-            <button type="button" id="role-staff-btn" style="flex: 1; padding: 0.5rem; border-radius: 0.5rem; border: none; cursor: pointer; font-weight: 600; font-size: 0.85rem; transition: all 0.2s; background: transparent; color: var(--sd-text-muted);">
-                <i data-lucide="chef-hat" style="width:13px;height:13px;vertical-align:middle;margin-right:4px;"></i> Staff
-            </button>
+                <h2 id="auth-title" style="margin-bottom: 0.5rem;">Smart-Dine Login</h2>
+                <p id="auth-subtitle" style="color: var(--sd-text-muted); margin-bottom: 1rem;">Enter your College Roll
+                    Number</p>
+
+                <div id="role-selector"
+                    style="display: flex; gap: 0.75rem; margin-bottom: 1.5rem; background: var(--sd-bg-card); border-radius: 0.75rem; padding: 0.25rem;">
+                    <button type="button" id="role-student-btn"
+                        style="flex: 1; padding: 0.5rem; border-radius: 0.5rem; border: none; cursor: pointer; font-weight: 600; font-size: 0.85rem; transition: all 0.2s; background: var(--sd-accent-violet); color: #fff;">
+                        <i data-lucide="graduation-cap"
+                            style="width:13px;height:13px;vertical-align:middle;margin-right:4px;"></i> Student
+                    </button>
+                    <button type="button" id="role-staff-btn"
+                        style="flex: 1; padding: 0.5rem; border-radius: 0.5rem; border: none; cursor: pointer; font-weight: 600; font-size: 0.85rem; transition: all 0.2s; background: transparent; color: var(--sd-text-muted);">
+                        <i data-lucide="chef-hat"
+                            style="width:13px;height:13px;vertical-align:middle;margin-right:4px;"></i> Staff
+                    </button>
+                </div>
+
+                <input type="text" id="auth-roll-no" class="form-input" placeholder="e.g. 24B81A67R1"
+                    style="text-transform: uppercase; text-align: center; font-size: 1.1rem; margin-bottom: 1.5rem;">
+                <input type="email" id="auth-email" class="form-input" placeholder="staff@college.edu"
+                    style="display: none; text-align: center; font-size: 1.1rem; margin-bottom: 1rem;">
+                <input type="password" id="auth-password" class="form-input" placeholder="Password"
+                    style="display: none; text-align: center; font-size: 1.1rem; margin-bottom: 1rem;">
+                <select id="auth-staff-shop" class="form-input" style="display: none; margin-bottom: 1rem;">
+                    <option value="Meals">Meals</option>
+                    <option value="Snacks">Snacks</option>
+                    <option value="Beverages">Beverages</option>
+                </select>
+                <input type="password" id="auth-confirm-password" class="form-input" placeholder="Confirm Password"
+                    style="display: none; text-align: center; font-size: 1.1rem; margin-bottom: 1.5rem;">
+
+                <button id="auth-btn" class="btn-primary" style="width: 100%; margin-bottom: 1rem;">
+                    <i data-lucide="log-in" id="auth-btn-icon"></i> <span id="auth-btn-text">Access Dashboard</span>
+                </button>
+
+                <p id="auth-error"
+                    style="color: var(--sd-danger); margin-bottom: 1rem; font-size: 0.9rem; display: none;">Error
+                    message here</p>
+
+                <p style="font-size: 0.9rem; color: var(--sd-text-secondary); margin-top: 1rem;">
+                    <span id="auth-switch-text">Don't have an account?</span>
+                    <a href="#" id="auth-switch-btn"
+                        style="color: var(--sd-accent-violet); font-weight: 600; text-decoration: none;">Sign Up</a>
+                </p>
+            </div>
         </div>
-        
-        <input type="text" id="auth-roll-no" class="form-input" placeholder="e.g. 24B81A67R1" style="text-transform: uppercase; text-align: center; font-size: 1.1rem; margin-bottom: 1.5rem;">
-        <input type="email" id="auth-email" class="form-input" placeholder="staff@college.edu" style="display: none; text-align: center; font-size: 1.1rem; margin-bottom: 1rem;">
-        <input type="password" id="auth-password" class="form-input" placeholder="Password" style="display: none; text-align: center; font-size: 1.1rem; margin-bottom: 1rem;">
-        <select id="auth-staff-shop" class="form-input" style="display: none; margin-bottom: 1rem;">
-            <option value="Meals">Meals</option>
-            <option value="Snacks">Snacks</option>
-            <option value="Beverages">Beverages</option>
-        </select>
-        <input type="password" id="auth-confirm-password" class="form-input" placeholder="Confirm Password" style="display: none; text-align: center; font-size: 1.1rem; margin-bottom: 1.5rem;">
-        
-        <button id="auth-btn" class="btn-primary" style="width: 100%; margin-bottom: 1rem;">
-            <i data-lucide="log-in" id="auth-btn-icon"></i> <span id="auth-btn-text">Access Dashboard</span>
-        </button>
-        
-        <p id="auth-error" style="color: var(--sd-danger); margin-bottom: 1rem; font-size: 0.9rem; display: none;">Error message here</p>
-        
-        <p style="font-size: 0.9rem; color: var(--sd-text-secondary); margin-top: 1rem;">
-            <span id="auth-switch-text">Don't have an account?</span> 
-            <a href="#" id="auth-switch-btn" style="color: var(--sd-accent-violet); font-weight: 600; text-decoration: none;">Sign Up</a>
-        </p>
-    </div>
-</div>
         <nav class="nav-floating glass-card">
             <span class="nav-brand">Smart-Dine</span>
             <button class="nav-link active" data-target="dashboard">
@@ -82,15 +99,20 @@
                         <button class="shop-tab" data-shop="Beverages">Beverages</button>
                     </div>
 
-                    <div id="live-order-tracker" class="glass-card slide-up" style="display: none; background: #f0fdf4; border: 1px solid #bbf7d0; margin-bottom: 1.5rem; text-align: center;">
+                    <div id="live-order-tracker" class="glass-card slide-up"
+                        style="display: none; background: #f0fdf4; border: 1px solid #bbf7d0; margin-bottom: 1.5rem; text-align: center;">
                         <h3 style="font-size: 1rem; color: #166534; margin-bottom: 0.5rem;">
-                            <i data-lucide="chef-hat" style="width: 18px; height: 18px; vertical-align: middle;"></i> Preparing your <span id="tracker-shop-name"></span>
+                            <i data-lucide="chef-hat" style="width: 18px; height: 18px; vertical-align: middle;"></i>
+                            Preparing your <span id="tracker-shop-name"></span>
                         </h3>
-                        <p style="font-size: 1.5rem; font-weight: 700; color: #15803d; margin-bottom: 0.25rem;" id="tracker-time-left">--</p>
-                        <p style="font-size: 0.85rem; color: #166534; font-weight: 500;" id="tracker-status-text">Estimated time remaining</p>
+                        <p style="font-size: 1.5rem; font-weight: 700; color: #15803d; margin-bottom: 0.25rem;"
+                            id="tracker-time-left">--</p>
+                        <p style="font-size: 0.85rem; color: #166534; font-weight: 500;" id="tracker-status-text">
+                            Estimated time remaining</p>
                     </div>
 
-                    <div id="order-ready-notification" style="display: none; background: #10b981; color: white; padding: 12px; border-radius: 8px; margin-bottom: 15px; font-weight: bold; text-align: center; box-shadow: 0 4px 6px rgba(0,0,0,0.1); animation: popIn 0.3s ease-out;">
+                    <div id="order-ready-notification"
+                        style="display: none; background: #10b981; color: white; padding: 12px; border-radius: 8px; margin-bottom: 15px; font-weight: bold; text-align: center; box-shadow: 0 4px 6px rgba(0,0,0,0.1); animation: popIn 0.3s ease-out;">
                         🎉 Your <span id="ready-shop-name"></span> order is ready for pickup!
                     </div>
 
@@ -103,22 +125,30 @@
                         <div class="glass-card metric-card">
                             <div class="metric-icon amber"><i data-lucide="clock"></i></div>
                             <div class="metric-label">Estimated Wait</div>
-                            <div class="metric-value"><span id="wait-val">-</span> <span style="font-size: 1rem;">Mins</span></div>
-                            <div id="wait-trend-container" style="display: inline-flex; align-items: center; gap: 4px; padding: 4px 8px; border-radius: 999px; font-size: 0.75rem; font-weight: 700; margin-top: 8px; background: #f1f5f9; color: #64748b; transition: all 0.3s ease;">
+                            <div class="metric-value"><span id="wait-val">-</span> <span
+                                    style="font-size: 1rem;">Mins</span></div>
+                            <div id="wait-trend-container"
+                                style="display: inline-flex; align-items: center; gap: 4px; padding: 4px 8px; border-radius: 999px; font-size: 0.75rem; font-weight: 700; margin-top: 8px; background: #f1f5f9; color: #64748b; transition: all 0.3s ease;">
                                 <i data-lucide="minus" style="width: 14px; height: 14px;"></i> <span>Stable</span>
                             </div>
                         </div>
                         <div class="glass-card metric-card full-width" id="seats-card">
                             <div class="seats-row">
                                 <div>
-                                    <div class="metric-icon emerald" style="margin-bottom: 0.5rem;"><i data-lucide="armchair"></i></div>
+                                    <div class="metric-icon emerald" style="margin-bottom: 0.5rem;"><i
+                                            data-lucide="armchair"></i></div>
                                     <div class="metric-label">Available Seats</div>
-                                    <div class="metric-value"><span id="seats-val">-</span> <span style="font-size: 1rem; color: var(--sd-text-muted);">/ 120</span></div>
+                                    <div class="metric-value"><span id="seats-val">-</span> <span
+                                            style="font-size: 1rem; color: var(--sd-text-muted);">/ 120</span></div>
                                 </div>
                                 <svg width="72" height="72" viewBox="0 0 72 72">
-                                    <circle cx="36" cy="36" r="28" fill="none" stroke-width="6" class="progress-ring-bg" />
-                                    <circle cx="36" cy="36" r="28" fill="none" stroke-width="6" class="progress-ring-fill" id="seat-ring" stroke-linecap="round" transform="rotate(-90 36 36)" />
-                                    <text x="36" y="42" text-anchor="middle" font-size="16" font-weight="700" fill="var(--sd-text-primary)" id="seat-text">-</text>
+                                    <circle cx="36" cy="36" r="28" fill="none" stroke-width="6"
+                                        class="progress-ring-bg" />
+                                    <circle cx="36" cy="36" r="28" fill="none" stroke-width="6"
+                                        class="progress-ring-fill" id="seat-ring" stroke-linecap="round"
+                                        transform="rotate(-90 36 36)" />
+                                    <text x="36" y="42" text-anchor="middle" font-size="16" font-weight="700"
+                                        fill="var(--sd-text-primary)" id="seat-text">-</text>
                                 </svg>
                             </div>
                         </div>
@@ -136,8 +166,11 @@
                             <button class="btn-primary" id="join-btn">
                                 <i data-lucide="zap"></i> Join Queue Now
                             </button>
-                            <button id="scan-barcode-btn" style="background: transparent; color: var(--sd-text-primary); border: 1px solid var(--sd-border); border-radius: var(--sd-radius); padding: 0.85rem 1rem; font-weight: 600; cursor: pointer;">
-                                <i data-lucide="scan-line" style="width: 16px; height: 16px; vertical-align: middle; margin-right: 0.4rem;"></i> Scan ID Card
+                            <button id="scan-barcode-btn"
+                                style="background: transparent; color: var(--sd-text-primary); border: 1px solid var(--sd-border); border-radius: var(--sd-radius); padding: 0.85rem 1rem; font-weight: 600; cursor: pointer;">
+                                <i data-lucide="scan-line"
+                                    style="width: 16px; height: 16px; vertical-align: middle; margin-right: 0.4rem;"></i>
+                                Scan ID Card
                             </button>
                         </div>
                         <div id="reader" style="display: none; margin-top: 1rem;"></div>
@@ -145,7 +178,9 @@
 
                     <!-- Student Live Menu -->
                     <div id="student-menu-container" style="display: none;">
-                        <h4><i data-lucide="utensils" style="width:13px;height:13px;vertical-align:middle;margin-right:4px;"></i> Today's Menu</h4>
+                        <h4><i data-lucide="utensils"
+                                style="width:13px;height:13px;vertical-align:middle;margin-right:4px;"></i> Today's Menu
+                        </h4>
                         <div class="menu-item-grid" id="student-menu-grid"></div>
                     </div>
                 </div>
@@ -162,7 +197,8 @@
                         <div class="glass-card order-section-card">
                             <div class="order-section-top">
                                 <h3>Meals</h3>
-                                <span id="serve-notice-meals" class="serve-notice" style="display: none;">Served now - collect within 1 min</span>
+                                <span id="serve-notice-meals" class="serve-notice" style="display: none;">Served now -
+                                    collect within 1 min</span>
                             </div>
                             <div class="order-subtitle">Preparing</div>
                             <ul id="active-orders-list-meals" class="order-list"></ul>
@@ -173,7 +209,8 @@
                         <div class="glass-card order-section-card">
                             <div class="order-section-top">
                                 <h3>Snacks</h3>
-                                <span id="serve-notice-snacks" class="serve-notice" style="display: none;">Served now - collect within 1 min</span>
+                                <span id="serve-notice-snacks" class="serve-notice" style="display: none;">Served now -
+                                    collect within 1 min</span>
                             </div>
                             <div class="order-subtitle">Preparing</div>
                             <ul id="active-orders-list-snacks" class="order-list"></ul>
@@ -184,7 +221,8 @@
                         <div class="glass-card order-section-card">
                             <div class="order-section-top">
                                 <h3>Beverages</h3>
-                                <span id="serve-notice-beverages" class="serve-notice" style="display: none;">Served now - collect within 1 min</span>
+                                <span id="serve-notice-beverages" class="serve-notice" style="display: none;">Served now
+                                    - collect within 1 min</span>
                             </div>
                             <div class="order-subtitle">Preparing</div>
                             <ul id="active-orders-list-beverages" class="order-list"></ul>
@@ -205,13 +243,15 @@
                     <div class="glass-card planner-form slide-up" style="animation-delay: 0.1s;">
                         <div class="form-grid">
                             <div class="form-group">
-                                <label class="input-label"><i data-lucide="calendar" style="width:14px;height:14px;"></i> Date</label>
+                                <label class="input-label"><i data-lucide="calendar"
+                                        style="width:14px;height:14px;"></i> Date</label>
                                 <input type="hidden" id="predict-date">
                                 <div class="custom-date-picker">
                                     <button type="button" class="date-trigger" id="date-trigger">
                                         <i data-lucide="calendar" style="width:15px;height:15px;"></i>
                                         <span id="date-display">Select date</span>
-                                        <i data-lucide="chevron-down" style="width:14px;height:14px;margin-left:auto;opacity:0.5;"></i>
+                                        <i data-lucide="chevron-down"
+                                            style="width:14px;height:14px;margin-left:auto;opacity:0.5;"></i>
                                     </button>
                                     <div class="calendar-popup" id="calendar-popup">
                                         <div class="cal-header">
@@ -219,9 +259,11 @@
                                             <div class="cal-title">
                                                 <span id="cal-month-display">March</span>
                                                 <div class="cal-year-ctrl">
-                                                    <button type="button" class="cal-yr-arrow" id="cal-prev-yr">&#8249;</button>
+                                                    <button type="button" class="cal-yr-arrow"
+                                                        id="cal-prev-yr">&#8249;</button>
                                                     <span id="cal-year-display">2026</span>
-                                                    <button type="button" class="cal-yr-arrow" id="cal-next-yr">&#8250;</button>
+                                                    <button type="button" class="cal-yr-arrow"
+                                                        id="cal-next-yr">&#8250;</button>
                                                 </div>
                                             </div>
                                             <button type="button" class="cal-nav-btn" id="cal-next">&#8250;</button>
@@ -239,11 +281,14 @@
                                 </div>
                             </div>
                             <div class="form-group">
-                                <label class="input-label"><i data-lucide="clock" style="width:14px;height:14px;"></i> Time</label>
-                                <input type="time" id="predict-time" class="form-input" min="08:00" max="18:00" value="12:00">
+                                <label class="input-label"><i data-lucide="clock" style="width:14px;height:14px;"></i>
+                                    Time</label>
+                                <input type="time" id="predict-time" class="form-input" min="08:00" max="18:00"
+                                    value="12:00">
                             </div>
                             <div class="form-group full">
-                                <label class="input-label"><i data-lucide="store" style="width:14px;height:14px;"></i> Shop</label>
+                                <label class="input-label"><i data-lucide="store" style="width:14px;height:14px;"></i>
+                                    Shop</label>
                                 <div class="select-wrap">
                                     <select class="form-input" id="predict-shop">
                                         <option>Meals</option>
@@ -259,7 +304,8 @@
                         </button>
                     </div>
 
-                    <div class="glass-card prediction-result slide-up" id="prediction-result" style="display: none; margin-top: 2rem;">
+                    <div class="glass-card prediction-result slide-up" id="prediction-result"
+                        style="display: none; margin-top: 2rem;">
                         <div class="prediction-metrics">
                             <div class="pred-metric">
                                 <h3 id="pred-wait-val">--</h3>
@@ -279,14 +325,18 @@
 
             <section id="kds" class="page-view" style="display: none;">
                 <div class="kds-page">
-                    <div class="kds-header slide-up" style="display: flex; justify-content: space-between; align-items: center;">
+                    <div class="kds-header slide-up"
+                        style="display: flex; justify-content: space-between; align-items: center;">
                         <h2 id="kds-shop-title">Staff Kitchen Display</h2>
-                        <button id="staff-logout-btn" style="background: var(--sd-danger); color: #fff; border: none; border-radius: 0.5rem; padding: 0.5rem 1rem; cursor: pointer; font-weight: 600; font-size: 0.9rem; transition: all 0.2s;">
-                            <i data-lucide="log-out" style="width:16px;height:16px;vertical-align:middle;margin-right:6px;"></i> Logout
+                        <button id="staff-logout-btn"
+                            style="background: var(--sd-danger); color: #fff; border: none; border-radius: 0.5rem; padding: 0.5rem 1rem; cursor: pointer; font-weight: 600; font-size: 0.9rem; transition: all 0.2s;">
+                            <i data-lucide="log-out"
+                                style="width:16px;height:16px;vertical-align:middle;margin-right:6px;"></i> Logout
                         </button>
                     </div>
 
-                    <div class="glass-card kds-summary slide-up" style="animation-delay: 0.1s; display: flex; gap: 2rem; margin-bottom: 2rem;">
+                    <div class="glass-card kds-summary slide-up"
+                        style="animation-delay: 0.1s; display: flex; gap: 2rem; margin-bottom: 2rem;">
                         <div class="kds-stat">
                             <h3 id="active-orders-count">-</h3>
                             <p><i data-lucide="clipboard-list" style="width: 14px; height: 14px;"></i> Active Orders</p>
@@ -297,18 +347,21 @@
                         </div>
                     </div>
 
-                    <div class="card" style="margin-bottom: 15px; display: flex; justify-content: space-between; align-items: center; background: #fff8f1; border: 1px solid #ffedd5;">
+                    <div class="card"
+                        style="margin-bottom: 15px; display: flex; justify-content: space-between; align-items: center; background: #fff8f1; border: 1px solid #ffedd5;">
                         <span style="font-weight: bold; font-size: 1.1rem;">Station Status:</span>
-                        <button id="staff-pause-btn" style="background-color: #10b981; color: white; padding: 10px 20px; border: none; border-radius: 8px; font-weight: bold; cursor: pointer;">
+                        <button id="staff-pause-btn"
+                            style="background-color: #10b981; color: white; padding: 10px 20px; border: none; border-radius: 8px; font-weight: bold; cursor: pointer;">
                             Accepting Orders
                         </button>
                     </div>
 
                     <div class="kds-grid slide-up" id="kds-grid" style="animation-delay: 0.2s;">
-                        </div>
+                    </div>
 
                     <!-- Manage Menu Section (shown only for Meals & Beverages staff) -->
-                    <div id="manage-menu-section" class="glass-card slide-up" style="display: none; animation-delay: 0.3s;">
+                    <div id="manage-menu-section" class="glass-card slide-up"
+                        style="display: none; animation-delay: 0.3s;">
                         <h3>
                             <i data-lucide="book-open" style="width:18px;height:18px;"></i>
                             Manage Menu
@@ -316,8 +369,10 @@
 
                         <!-- Add Item Form -->
                         <div class="menu-add-form">
-                            <input type="text" id="menu-item-name" class="form-input" placeholder="Item name (e.g. Dal Rice)" maxlength="80">
-                            <input type="number" id="menu-item-price" class="form-input" placeholder="Price (₹)" min="0" max="9999" style="max-width: 130px;">
+                            <input type="text" id="menu-item-name" class="form-input"
+                                placeholder="Item name (e.g. Dal Rice)" maxlength="80">
+                            <input type="number" id="menu-item-price" class="form-input" placeholder="Price (₹)" min="0"
+                                max="9999" style="max-width: 130px;">
                             <button class="btn-primary" id="menu-add-btn" style="padding: 0.75rem 1.25rem;">
                                 <i data-lucide="plus" style="width:16px;height:16px;"></i> Add Item
                             </button>
@@ -335,7 +390,11 @@
                                     </tr>
                                 </thead>
                                 <tbody id="menu-items-tbody">
-                                    <tr><td colspan="4" style="color: var(--sd-text-muted); text-align:center; padding: 1.5rem;">Loading menu...</td></tr>
+                                    <tr>
+                                        <td colspan="4"
+                                            style="color: var(--sd-text-muted); text-align:center; padding: 1.5rem;">
+                                            Loading menu...</td>
+                                    </tr>
                                 </tbody>
                             </table>
                         </div>
@@ -343,9 +402,10 @@
                 </div>
             </section>
         </main>
-        
+
         <div class="toast-container" id="toast-container"></div>
     </div>
-    <script src="/static/script.js"></script>
+    <script src="script.js"></script>
 </body>
+
 </html>
