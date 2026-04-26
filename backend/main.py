@@ -19,7 +19,7 @@ from twilio.rest import Client
 # 1. Setup Paths
 # This finds the 'backend' folder, then goes one level up to 'Smart-Dine-1'
 BASE_DIR = Path(__file__).resolve().parent
-FRONTEND_DIR = BASE_DIR
+FRONTEND_DIR = BASE_DIR.parent/ "frontend"
 
 # 2. Load Environment
 env_path = BASE_DIR / ".env"
@@ -56,7 +56,7 @@ CANTEEN_OPEN_HOUR = 8
 CANTEEN_CLOSE_HOUR = 17
 CLOSED_DAYS = [6]
 
-
+#Segment 1: WhatsApp Logic
 @app.post("/api/whatsapp")
 async def whatsapp_webhook(From: str = Form(...), Body: str = Form(...)):
     sender_phone = From  # e.g., "whatsapp:+919876543210"
@@ -315,7 +315,7 @@ def release_db_connection(conn):
 def validate_shop(shop: str):
     if shop not in VALID_SHOPS:
         raise HTTPException(status_code=400, detail="Invalid shop selected.")
-
+#The Queue & SLA Engine
 def process_queue_join(roll_no, shop, cursor, conn):
     # Check if station is paused
     cursor.execute("SELECT is_active FROM shop_settings WHERE shop = %s", (shop,))
@@ -363,7 +363,7 @@ def purge_ghost_orders(cursor, conn):
     ghost_time_limit = datetime.now(timezone.utc) - timedelta(hours=2)
     cursor.execute("DELETE FROM active_queue WHERE time_in < %s", (ghost_time_limit,))
     conn.commit()
-
+#Live Status & Trend Intelligence
 @app.get("/api/status")
 def get_status(shop: str):
     validate_shop(shop)
@@ -578,7 +578,7 @@ def get_orders(shop: str):
         return orders
     finally:
         release_db_connection(conn)
-
+#The Fulfillment & ML Data Logging Loop
 @app.post("/api/serve/{order_id}")
 def serve_order(order_id: int):
     conn = None
@@ -652,7 +652,7 @@ def serve_order(order_id: int):
         raise HTTPException(status_code=500, detail="Failed to serve order")
     finally:
         release_db_connection(conn)
-
+#The AI Prediction Bridge
 @app.post("/api/predict")
 def predict_wait(req: PredictReq):
     date_obj = datetime.strptime(req.date_string, "%Y-%m-%d")
