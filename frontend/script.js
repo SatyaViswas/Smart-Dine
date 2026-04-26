@@ -4,7 +4,7 @@ lucide.createIcons();
 // --- STATE MANAGEMENT ---
 const API_HOST = window.location.hostname || '127.0.0.1';
 
-const BASE_URL = window.location.origin + '/api';
+const BASE_URL = 'https://smart-dine-oyaw.onrender.com/api';
 // --- AUTHENTICATION LOGIC (LOGIN & SIGNUP) ---
 const authScreen = document.getElementById('auth-screen');
 const appContent = document.getElementById('app-content');
@@ -14,9 +14,9 @@ let isLoginMode = true; // Tracks whether we are logging in or signing up
 let isStaffMode = false; // Tracks whether the active role is Staff or Student
 
 // Check if user is already logged in
-const savedRole   = localStorage.getItem('userRole');
+const savedRole = localStorage.getItem('userRole');
 const savedRollNo = localStorage.getItem('userRollNo');
-const savedEmail  = localStorage.getItem('userEmail');
+const savedEmail = localStorage.getItem('userEmail');
 const savedStaffShop = localStorage.getItem('staffShop');
 
 if (savedRole === 'student' && savedRollNo) {
@@ -71,15 +71,15 @@ function updateAuthForm() {
         ? (isLogin ? 'Sign in with your staff email' : 'Create a staff account')
         : (isLogin ? 'Enter your College Roll Number' : 'Register for Smart-Dine Campus');
 
-    document.getElementById('auth-roll-no').style.display          = isStaff ? 'none'  : 'block';
-    document.getElementById('auth-email').style.display            = isStaff ? 'block' : 'none';
-    document.getElementById('auth-password').style.display         = isStaff ? 'block' : 'none';
-    document.getElementById('auth-staff-shop').style.display       = (isStaff && !isLogin) ? 'block' : 'none';
+    document.getElementById('auth-roll-no').style.display = isStaff ? 'none' : 'block';
+    document.getElementById('auth-email').style.display = isStaff ? 'block' : 'none';
+    document.getElementById('auth-password').style.display = isStaff ? 'block' : 'none';
+    document.getElementById('auth-staff-shop').style.display = (isStaff && !isLogin) ? 'block' : 'none';
     document.getElementById('auth-confirm-password').style.display = (isStaff && !isLogin) ? 'block' : 'none';
 
-    document.getElementById('auth-btn-text').textContent    = isLogin ? 'Access Dashboard' : 'Create Account';
+    document.getElementById('auth-btn-text').textContent = isLogin ? 'Access Dashboard' : 'Create Account';
     document.getElementById('auth-switch-text').textContent = isLogin ? "Don't have an account?" : 'Already have an account?';
-    document.getElementById('auth-switch-btn').textContent  = isLogin ? 'Sign Up' : 'Log In';
+    document.getElementById('auth-switch-btn').textContent = isLogin ? 'Sign Up' : 'Log In';
 }
 
 // Handle the Form Submission
@@ -90,7 +90,7 @@ document.getElementById('auth-btn').addEventListener('click', async () => {
 
     if (isStaffMode) {
         // --- STAFF AUTH FLOW ---
-        const email    = document.getElementById('auth-email').value.trim();
+        const email = document.getElementById('auth-email').value.trim();
         const password = document.getElementById('auth-password').value;
         if (!email || !password) { showAuthError('Email and password are required.'); return; }
 
@@ -172,8 +172,8 @@ function completeLogin(role, identifier) {
     if (role === 'staff') {
         navBar.style.display = 'none';
         document.getElementById('dashboard').style.display = 'none';
-        document.getElementById('planner').style.display   = 'none';
-        document.getElementById('kds').style.display       = 'block';
+        document.getElementById('planner').style.display = 'none';
+        document.getElementById('kds').style.display = 'block';
         const assignedShop = localStorage.getItem('staffShop') || 'Meals';
         document.getElementById('kds-shop-title').innerText = `${assignedShop} KDS`;
 
@@ -190,23 +190,23 @@ function completeLogin(role, identifier) {
     } else {
         navBar.style.display = 'flex';
         document.getElementById('dashboard').style.display = 'block';
-        document.getElementById('planner').style.display   = 'none';
-        document.getElementById('kds').style.display       = 'none';
+        document.getElementById('planner').style.display = 'none';
+        document.getElementById('kds').style.display = 'none';
         document.querySelector('.dashboard-header h1').textContent = 'Welcome, Student';
-        document.querySelector('.dashboard-header p').textContent  = `Smart-Dine Campus Canteen | ${identifier}`;
+        document.querySelector('.dashboard-header p').textContent = `Smart-Dine Campus Canteen | ${identifier}`;
         document.querySelector('.avatar').textContent = 'ST';
     }
 }
 
 document.querySelector('.avatar').addEventListener('click', () => {
-    if(confirm("Do you want to logout?")) {
+    if (confirm("Do you want to logout?")) {
         localStorage.clear();
         location.reload();
     }
 });
 
 document.getElementById('staff-logout-btn').addEventListener('click', () => {
-    if(confirm("Do you want to logout?")) {
+    if (confirm("Do you want to logout?")) {
         localStorage.clear();
         location.reload();
     }
@@ -280,7 +280,7 @@ function syncStaffPauseButton() {
 function formatWaitTime(totalSeconds) {
     if (!totalSeconds || isNaN(totalSeconds)) return "0s";
     totalSeconds = Math.round(totalSeconds);
-    
+
     if (totalSeconds < 60) {
         return `${totalSeconds}s`;
     } else if (totalSeconds < 3600) {
@@ -571,7 +571,7 @@ function showOrderSkeletons() {
         const shopId = normalizeShopId(shop);
         const activeListEl = document.getElementById(`active-orders-list-${shopId}`);
         const completedListEl = document.getElementById(`completed-orders-list-${shopId}`);
-        
+
         const skeletonHTML = `
             <div class="skeleton skeleton-order-card"></div>
             <div class="skeleton skeleton-order-card"></div>
@@ -590,16 +590,16 @@ function showOrderSkeletons() {
 function updateLiveOrderTracker() {
     const tracker = document.getElementById('live-order-tracker');
     const selectedShop = document.getElementById('student-shop-selector')?.value || currentShop;
-    
+
     // Get active orders for this specific shop from our cache
     const shopData = shopDataCache[selectedShop];
     const activeOrders = shopData?.orders?.active || [];
-    
+
     if (activeOrders.length === 0) {
         tracker.style.display = 'none';
         return;
     }
-    
+
     // Assume the first active order is the one we are tracking
     const order = activeOrders[0];
     if (!order.time_in_raw || !order.expected_wait_seconds) return;
@@ -608,15 +608,15 @@ function updateLiveOrderTracker() {
     const expectedWaitMs = order.expected_wait_seconds * 1000;
     const targetTime = new Date(timeIn.getTime() + expectedWaitMs);
     const now = new Date();
-    
+
     const remainingMs = targetTime - now;
-    
+
     document.getElementById('tracker-shop-name').innerText = selectedShop;
     const timeLeftEl = document.getElementById('tracker-time-left');
     const statusTextEl = document.getElementById('tracker-status-text');
-    
+
     tracker.style.display = 'block';
-    
+
     if (remainingMs > 60000) {
         // More than 1 minute
         const mins = Math.ceil(remainingMs / 60000);
@@ -665,7 +665,7 @@ async function fetchMyOrders() {
         if (!completedBootstrapDone) {
             showOrderSkeletons();
         }
-        
+
         const data = await fetchJson(`${BASE_URL}/my_orders?roll_no=${encodeURIComponent(rollNo)}`);
 
         const activeItems = Array.isArray(data.active) ? data.active : [];
@@ -908,7 +908,7 @@ document.getElementById('scan-barcode-btn').addEventListener('click', () => {
                 await updateDashboardUI({ shop: (document.getElementById('student-shop-selector')?.value || currentShop), silent: true });
             }
         },
-        () => {}
+        () => { }
     );
 });
 
@@ -926,7 +926,7 @@ document.getElementById('predict-btn').addEventListener('click', async () => {
         return;
     }
     btn.innerHTML = `<i data-lucide="loader"></i> Analyzing...`; lucide.createIcons();
-    
+
     try {
         const res = await fetch(`${BASE_URL}/predict`, {
             method: "POST", headers: { "Content-Type": "application/json" },
@@ -945,14 +945,14 @@ document.getElementById('predict-btn').addEventListener('click', async () => {
                 return Math.max(0, value) * perOrderSeconds;
             })
             : [];
-        
+
         document.getElementById('prediction-result').style.display = 'block';
         document.getElementById('pred-wait-val').textContent = formatWaitTime(predictedWaitSeconds);
         document.getElementById('pred-queue-val').textContent = predictedQueue;
-        
+
         renderChart(waitGraphSeconds, data.graph_labels);
     } catch (e) { showToast("Prediction failed", "error"); }
-    
+
     btn.innerHTML = `<i data-lucide="search"></i> Predict Wait Time`; lucide.createIcons();
 });
 
@@ -967,16 +967,16 @@ function renderChart(mlDataArray, graphLabels) {
     const yAxisMax = (safeMlDataArray.length ? Math.max(...safeMlDataArray) : 0) + 10;
     const gradient = ctx.createLinearGradient(0, 0, 0, 200);
     gradient.addColorStop(0, 'rgba(124, 58, 237, 0.3)'); gradient.addColorStop(1, 'rgba(124, 58, 237, 0)');
-    
+
     chartInstance = new Chart(ctx, {
         type: 'line',
-        data: { 
+        data: {
             labels: safeGraphLabels,
-            datasets: [{ 
-                label: 'Predicted Wait Time', 
+            datasets: [{
+                label: 'Predicted Wait Time',
                 data: safeMlDataArray,
-                borderColor: '#7c3aed', backgroundColor: gradient, borderWidth: 2.5, fill: true, tension: 0.4 
-            }] 
+                borderColor: '#7c3aed', backgroundColor: gradient, borderWidth: 2.5, fill: true, tension: 0.4
+            }]
         },
         options: {
             responsive: true,
@@ -1006,7 +1006,7 @@ async function renderOrders() {
     try {
         const orders = await fetchJson(`${BASE_URL}/orders?shop=${encodeURIComponent(staffShop)}`);
         document.getElementById('active-orders-count').textContent = orders.length;
-        
+
         if (orders.length === 0) {
             grid.innerHTML = `<div class="glass-card" style="grid-column: 1/-1; text-align: center; color: var(--sd-text-muted);">All orders served! 🎉</div>`;
             return;
@@ -1041,7 +1041,7 @@ async function renderOrders() {
     }
 }
 
-window.serveOrder = async function(orderId) {
+window.serveOrder = async function (orderId) {
     try {
         await fetchJson(`${BASE_URL}/serve/${orderId}`, { method: "POST" });
         renderOrders();
@@ -1100,12 +1100,12 @@ function showToast(message, type = 'success') {
 
     // ── Calendar Picker ──────────────────────────────────────────
     const dateInput = document.getElementById('predict-date');
-    const trigger   = document.getElementById('date-trigger');
-    const popup     = document.getElementById('calendar-popup');
-    let calCursor   = new Date();
+    const trigger = document.getElementById('date-trigger');
+    const popup = document.getElementById('calendar-popup');
+    let calCursor = new Date();
 
     function toLocalStr(d) {
-        return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+        return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
     }
 
     function formatDisplay(ds) {
@@ -1309,18 +1309,18 @@ async function loadMenuItems(shop) {
  * Add a new menu item via the Add Item form in the KDS section.
  */
 async function addMenuItem() {
-    const nameEl  = document.getElementById('menu-item-name');
+    const nameEl = document.getElementById('menu-item-name');
     const priceEl = document.getElementById('menu-item-price');
-    const btn     = document.getElementById('menu-add-btn');
+    const btn = document.getElementById('menu-add-btn');
     if (!nameEl || !priceEl || !btn) return;
 
-    const name  = nameEl.value.trim();
+    const name = nameEl.value.trim();
     const price = parseInt(priceEl.value, 10);
-    const shop  = localStorage.getItem('staffShop');
+    const shop = localStorage.getItem('staffShop');
 
-    if (!name)            { showToast('Please enter an item name.', 'error'); return; }
+    if (!name) { showToast('Please enter an item name.', 'error'); return; }
     if (isNaN(price) || price < 0) { showToast('Please enter a valid price.', 'error'); return; }
-    if (!shop)            { showToast('No shop assigned.', 'error'); return; }
+    if (!shop) { showToast('No shop assigned.', 'error'); return; }
 
     const originalHTML = btn.innerHTML;
     btn.innerHTML = '<i data-lucide="loader" style="width:16px;height:16px;"></i> Adding...';
@@ -1333,7 +1333,7 @@ async function addMenuItem() {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ shop, item_name: name, price })
         });
-        nameEl.value  = '';
+        nameEl.value = '';
         priceEl.value = '';
         await loadMenuItems(shop);
         showToast(`"${name}" added to the menu!`);
@@ -1342,7 +1342,7 @@ async function addMenuItem() {
         console.error('addMenuItem error:', e);
     } finally {
         btn.innerHTML = originalHTML;
-        btn.disabled  = false;
+        btn.disabled = false;
         lucide.createIcons();
     }
 }
@@ -1351,7 +1351,7 @@ async function addMenuItem() {
  * Toggle the availability of a menu item (called from inline onchange).
  * @param {number} itemId
  */
-window.toggleMenuItem = async function(itemId) {
+window.toggleMenuItem = async function (itemId) {
     const shop = localStorage.getItem('staffShop');
     try {
         await fetchJson(`${BASE_URL}/admin/menu/toggle/${itemId}`, { method: 'PATCH' });
@@ -1368,7 +1368,7 @@ window.toggleMenuItem = async function(itemId) {
  * @param {number} itemId
  * @param {string} itemName
  */
-window.deleteMenuItem = async function(itemId, itemName) {
+window.deleteMenuItem = async function (itemId, itemName) {
     if (!confirm(`Delete "${itemName}" from the menu? This cannot be undone.`)) return;
     const shop = localStorage.getItem('staffShop');
     try {
@@ -1405,7 +1405,7 @@ function escapeHtml(str) {
  */
 async function fetchStudentMenu(shop) {
     const container = document.getElementById('student-menu-container');
-    const grid      = document.getElementById('student-menu-grid');
+    const grid = document.getElementById('student-menu-grid');
     if (!container || !grid) return;
 
     // Snacks has no master menu
@@ -1422,8 +1422,8 @@ async function fetchStudentMenu(shop) {
         }
         grid.innerHTML = items.map(item => {
             const badgeClass = item.is_available ? 'badge-available' : 'badge-sold-out';
-            const badgeIcon  = item.is_available ? '<i data-lucide="check-circle" style="width:14px;height:14px;"></i>' : '<i data-lucide="x-circle" style="width:14px;height:14px;"></i>';
-            const badgeText  = item.is_available ? 'Available' : 'Sold Out';
+            const badgeIcon = item.is_available ? '<i data-lucide="check-circle" style="width:14px;height:14px;"></i>' : '<i data-lucide="x-circle" style="width:14px;height:14px;"></i>';
+            const badgeText = item.is_available ? 'Available' : 'Sold Out';
             return `
                 <div class="menu-item-pill">
                     <span class="item-name">${escapeHtml(item.item_name)}</span>

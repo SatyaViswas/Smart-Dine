@@ -40,7 +40,7 @@ else:
 
 client = Client(TWILIO_SID, TWILIO_TOKEN)
 app = FastAPI()
-app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
+app.add_middleware(CORSMiddleware, allow_origins=["https://smart-canteen-dine.netlify.app"], allow_methods=["*"], allow_headers=["*"])
 
 # 3. Serve Files
 # Mount the frontend folder so FastAPI can find style.css and script.js
